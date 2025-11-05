@@ -8,3 +8,5 @@ retry_requests
 numpy
 lightgbm
 scikit-learn
+matplotlib
+shap
