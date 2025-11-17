@@ -1,8 +1,8 @@
 # Model configuration: v2 tuned
 model:
   name: "lgbm_transport_v2"
-  description: "Tuned LightGBM model with stronger regularization"
-  num_boost_round: 4000
+  num_boost_round: 2000
+  needs_denormalization: true
 
 params:
   objective: "regression"

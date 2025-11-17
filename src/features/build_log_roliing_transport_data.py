@@ -1,10 +1,10 @@
 import polars as pl
 
-lags = [1,2,3,12,24,48,168]
-windows = [3,6,12,24]
+lags = [24,48,168]
+windows = [24]
 warmup = max(max(lags), max(windows))
 
-df = pl.read_parquet("../../data/processed/transport_hourly.parquet")
+df = pl.read_parquet("../../data/interim/transport_hourly.parquet")
 
 # transition_date string ya da date olabilir, datetime'a çevir
 df = df.with_columns([

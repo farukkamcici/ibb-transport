@@ -1,138 +1,175 @@
 """
-Unified model evaluation script for LightGBM crowding models.
+Unified Model Evaluation Script
 
-Behavior:
-- Discover ALL model files under /models (e.g. v1, v2, v3 ...)
-- For EACH model:
-    - If metrics/artifacts exist → load them
-    - If some artifacts are missing → generate only the missing ones
-- After all models are processed, generate a fresh global comparison
-  (evaluation_summary_all.json/csv) that includes ALL models that have metrics
-- Existing pairwise or older comparison files are NOT deleted
+This script provides a robust way to evaluate all trained LightGBM models
+(ending in .txt) found in the /models directory.
 
-Expected per-model artifacts:
-  reports/logs/metrics_<model>.json
-  reports/logs/metrics_<model>.csv
-  reports/logs/feature_importance_<model>.csv
-  reports/figs/feature_importance_<model>.png
-  reports/figs/shap_summary_<model>.png
+Key Behaviors:
+- Dynamic Configuration: For each model file (e.g., 'lgbm_transport_v1.txt'),
+  it parses the version ('v1') and loads the corresponding configuration from
+  /src/model/config/. This ensures that all evaluation parameters (features,
+  categorical features, normalization needs) perfectly match the training environment.
+
+- Idempotent Artifact Generation: For each model, it checks if evaluation
+  artifacts (metrics JSON, feature importance plots, SHAP plots) already exist.
+  It only generates the artifacts that are missing, making it efficient to re-run.
+
+- Handles Multiple Model Types: It correctly evaluates models trained on both
+  real-scale targets and normalized targets by checking the `needs_denormalization`
+  flag in the model's specific configuration.
+
+- Global Comparison: After processing all models, it generates a single,
+  updated comparison report ('evaluation_summary_all.json' and .csv) for
+  easy cross-model performance analysis.
 """
 
 import json
+import re
 import time
 from datetime import datetime
 from pathlib import Path
 
-import numpy as np
-import pandas as pd
 import lightgbm as lgb
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import shap
+import yaml
 
-from utils.paths import SPLIT_FEATURES_DIR, MODEL_DIR, REPORT_DIR, FIG_DIR, ensure_dirs
+from utils.config_loader import load_config
+from utils.paths import (
+    FIG_DIR,
+    MODEL_DIR,
+    REPORT_DIR,
+    SPLIT_FEATURES_DIR,
+    ensure_dirs,
+)
 
 
-# ============================================================
-# Metric helpers
-# ============================================================
+# ==============================================================================
+# Metric & Baseline Helper Functions
+# ==============================================================================
+
+
 def mae(y_true, y_pred):
+    """Calculates Mean Absolute Error."""
     return float(np.mean(np.abs(y_true - y_pred)))
 
 
 def rmse(y_true, y_pred):
+    """Calculates Root Mean Squared Error."""
     return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 
 def smape(y_true, y_pred):
-    return float(
-        np.mean(2 * np.abs(y_true - y_pred) / (np.abs(y_true) + np.abs(y_pred) + 1e-8))
-    )
+    """Calculates Symmetric Mean Absolute Percentage Error."""
+    numerator = np.abs(y_true - y_pred)
+    denominator = (np.abs(y_true) + np.abs(y_pred)) / 2.0
+    # Add a small epsilon to prevent division by zero
+    return float(np.mean(numerator / (denominator + 1e-8)))
 
 
 def improvement(base, model):
-    return float((base - model) / base * 100) if base else np.nan
+    """Calculates the percentage improvement of a model over a baseline."""
+    if base == 0:
+        return np.nan
+    return float((base - model) / base * 100)
 
 
-# ============================================================
-# Data loading
-# ============================================================
-def load_datasets():
-    """Load pre-split train/validation feature sets."""
-    train_df = pd.read_parquet(SPLIT_FEATURES_DIR / "train_features.parquet")
-    val_df = pd.read_parquet(SPLIT_FEATURES_DIR / "val_features.parquet")
-    print(f"Validation rows: {len(val_df):,}")
-    return train_df, val_df
-
-
-# ============================================================
-# Baselines and helpers
-# ============================================================
 def denormalize_predictions(train_df, val_df, y_pred_norm):
-    """Restore per-line normalized predictions to real scale."""
+    """
+    Restores per-line normalized predictions to their original, real scale.
+    This is required for models trained on a normalized target variable.
+    """
     stats = train_df.groupby("line_name")["y"].agg(["mean", "std"]).reset_index()
     merged = val_df[["line_name"]].merge(stats, on="line_name", how="left")
+
+    # Fill with global stats for any new lines in validation not seen in train
+    merged["mean"] = merged["mean"].fillna(train_df["y"].mean())
+    merged["std"] = merged["std"].fillna(train_df["y"].std())
+
     line_mean = merged["mean"].values
-    line_std = merged["std"].values + 1e-6
+    line_std = merged["std"].values + 1e-6  # Epsilon for stability
+
     return y_pred_norm * line_std + line_mean
 
 
 def compute_baselines(train_df, val_df):
-    """Compute lag_24h, lag_168h and line+hour mean baselines."""
+    """
+    Computes simple but important baselines to compare model performance against.
+    - lag_24h: Predicts the value from the previous day.
+    - lag_168h: Predicts the value from the previous week.
+    - line_hour_mean: Predicts the historical average for that specific line and hour.
+    """
+    # Simple lag baselines
     baseline_24 = val_df["lag_24h"]
     baseline_168 = val_df["lag_168h"]
 
-    ref = (
+    # Historical mean baseline
+    line_hour_mean_map = (
         train_df.groupby(["line_name", "hour_of_day"])["y"]
         .mean()
-        .reset_index()
-        .rename(columns={"y": "mean_y_line_hour"})
+        .rename("mean_y_line_hour")
     )
-    val_df = val_df.merge(ref, on=["line_name", "hour_of_day"], how="left")
-    baseline_linehour = val_df["mean_y_line_hour"]
-    return val_df, baseline_24, baseline_168, baseline_linehour
+    baseline_linehour = val_df.merge(
+        line_hour_mean_map, on=["line_name", "hour_of_day"], how="left"
+    )["mean_y_line_hour"]
+
+    return baseline_24, baseline_168, baseline_linehour
 
 
-def segment_eval(df, y_true, y_pred, col):
-    """Compute MAE per segment in df[col]."""
-    seg = {}
-    for v in sorted(df[col].unique()):
-        mask = df[col] == v
-        seg[str(v)] = mae(y_true[mask], y_pred[mask])
-    return seg
+# ==============================================================================
+# Data Loading
+# ==============================================================================
 
 
-# ============================================================
-# Artifact generators
-# ============================================================
+def load_datasets():
+    """Loads the pre-split training and validation feature sets."""
+    print("Loading train and validation datasets...")
+    try:
+        train_df = pd.read_parquet(SPLIT_FEATURES_DIR / "train_features.parquet")
+        val_df = pd.read_parquet(SPLIT_FEATURES_DIR / "val_features.parquet")
+        print(f"Validation rows: {len(val_df):,}")
+        return train_df, val_df
+    except FileNotFoundError as e:
+        print(f"ERROR: Could not find data files at {SPLIT_FEATURES_DIR}.")
+        print(f"Please run the feature pipeline first. Original error: {e}")
+        return None, None
+
+
+# ==============================================================================
+# Artifact Generation (Plots)
+# ==============================================================================
+
+
 def generate_feature_importance(model, model_name, X_val):
-    """Generate feature importance CSV + plot if missing."""
+    """Generates and saves a feature importance plot and CSV."""
+    print(f"  -> Generating feature importance for {model_name}...")
     csv_path = REPORT_DIR / f"feature_importance_{model_name}.csv"
     fig_path = FIG_DIR / f"feature_importance_{model_name}.png"
 
-    if not csv_path.exists():
-        importance = model.feature_importance(importance_type="gain")
-        imp_df = pd.DataFrame(
-            {"feature": X_val.columns, "importance": importance}
-        ).sort_values("importance", ascending=False)
-        imp_df.to_csv(csv_path, index=False)
+    importance = model.feature_importance(importance_type="gain")
+    imp_df = pd.DataFrame(
+        {"feature": X_val.columns, "importance": importance}
+    ).sort_values("importance", ascending=False)
+    imp_df.to_csv(csv_path, index=False)
 
-    if not fig_path.exists():
-        plt.figure(figsize=(8, 10))
-        lgb.plot_importance(model, max_num_features=20, importance_type="gain")
-        plt.title(f"Feature Importance — {model_name}")
-        plt.tight_layout()
-        plt.savefig(fig_path)
-        plt.close()
+    plt.figure(figsize=(10, 12))
+    lgb.plot_importance(model, max_num_features=25, importance_type="gain", figsize=(10, 12))
+    plt.title(f"Feature Importance (Gain) — {model_name}", fontsize=16)
+    plt.tight_layout()
+    plt.savefig(fig_path)
+    plt.close()
 
     return csv_path, fig_path
 
 
 def generate_shap(model, model_name, X_val):
-    """Generate SHAP summary plot if missing."""
+    """Generates and saves a SHAP summary plot."""
+    print(f"  -> Generating SHAP summary plot for {model_name}...")
     shap_path = FIG_DIR / f"shap_summary_{model_name}.png"
-    if shap_path.exists():
-        return shap_path
 
+    # SHAP can be slow, so we use a sample of the data
     sample_size = min(5000, len(X_val))
     sample_X = X_val.sample(sample_size, random_state=42)
 
@@ -140,171 +177,133 @@ def generate_shap(model, model_name, X_val):
     shap_values = explainer.shap_values(sample_X)
 
     plt.figure()
-    shap.summary_plot(shap_values, sample_X, max_display=20, show=False)
+    shap.summary_plot(shap_values, sample_X, max_display=25, show=False)
     plt.tight_layout()
     plt.savefig(shap_path)
     plt.close()
+
     return shap_path
 
 
-# ============================================================
-# Per-model evaluation (fresh)
-# ============================================================
-def evaluate_model_fresh(model_name, model, train_df, val_df):
+# ==============================================================================
+# Core Evaluation Logic
+# ==============================================================================
+
+
+def evaluate_model(model_name, model, train_df, val_df, cfg):
     """
-    Run full evaluation for a model and write JSON/CSV + artifacts.
+    Performs a full evaluation for a given model and its configuration.
+
+    This includes:
+    - Preparing data using the correct features and categorical encodings.
+    - Handling denormalization for older models.
+    - Calculating primary metrics (MAE, RMSE, SMAPE).
+    - Calculating baseline metrics and improvement scores.
+    - Generating and saving all artifacts (plots, logs).
     """
-    # Prepare X, y
-    X_val = val_df.drop(columns=["y"])
+    print(f"  -> Evaluating metrics for {model_name}...")
+    # --- 1. Prepare Data ---
+    # Use the feature list from the model's config to ensure consistency.
+    model_features = cfg["features"]["all"]
+    cat_features = cfg["features"]["categorical"]
+
+    # Ensure we only use features available in the validation data.
+    features_to_use = [f for f in model_features if f in val_df.columns]
+    X_val = val_df[features_to_use].copy()
     y_val = val_df["y"]
-    for c in ["line_name", "season"]:
+
+    # **Critical Step for Categorical Features**
+    # To prevent encoding mismatches, we create the category mapping from the
+    # combined train and validation data, mimicking the training script.
+    combined_df = pd.concat([train_df, val_df], ignore_index=True)
+    for c in cat_features:
         if c in X_val.columns:
-            X_val[c] = X_val[c].astype("category")
+            all_cats = combined_df[c].astype("category").cat.categories
+            X_val[c] = pd.Categorical(X_val[c], categories=all_cats, ordered=False)
 
-    # Baselines
-    val_df_bl, b24, b168, blinehour = compute_baselines(train_df, val_df)
+    # --- 2. Predict ---
+    start_time = time.time()
+    y_pred = model.predict(X_val, num_iteration=model.best_iteration)
+    prediction_time = time.time() - start_time
 
-    # Predict (normalized -> real)
-    # start = time.time()
-    # y_pred_norm = model.predict(X_val, num_iteration=model.best_iteration)
-    # pred_time = time.time() - start
-    # y_pred_real = denormalize_predictions(train_df, val_df, y_pred_norm)
+    # **Critical Step for Normalized Models**
+    # If the model was trained on a normalized target, convert predictions back.
+    if cfg["features"].get("needs_denormalization", False):
+        print(f"  -> Denormalizing predictions for {model_name}...")
+        y_pred = denormalize_predictions(train_df, val_df, y_pred)
 
-    # Predict (real scale)
-    start = time.time()
-    y_pred_real = model.predict(X_val, num_iteration=model.best_iteration)
-    pred_time = time.time() - start
-
-    # Core metrics
-    m = {
+    # --- 3. Calculate Metrics ---
+    metrics = {
         "model_name": model_name,
         "timestamp": datetime.now().isoformat(),
         "n_samples": int(len(X_val)),
         "best_iteration": int(model.best_iteration),
         "num_features": int(model.num_feature()),
+        "prediction_time_sec": prediction_time,
+        "mae": mae(y_val, y_pred),
+        "rmse": rmse(y_val, y_pred),
+        "smape": smape(y_val, y_pred),
     }
 
-    # Real-scale metrics
-    m["mae"] = mae(y_val, y_pred_real)
-    m["rmse"] = rmse(y_val, y_pred_real)
-    m["smape"] = smape(y_val, y_pred_real)
+    # --- 4. Calculate Segment-Level Metrics ---
+    # Create a temporary dataframe with predictions to facilitate grouped analysis
+    results_df = val_df[['hour_of_day', 'line_name']].copy()
+    results_df['y_true'] = y_val
+    results_df['y_pred'] = y_pred
+    results_df['abs_error'] = np.abs(results_df['y_true'] - results_df['y_pred'])
 
-    # Baseline metrics
-    base_lag24_mae = mae(y_val, b24)
-    base_linehour_mae = mae(y_val, blinehour)
-    m["baseline_mae_lag24"] = base_lag24_mae
-    m["baseline_mae_lag168"] = mae(y_val, b168)
-    m["baseline_mae_linehour"] = base_linehour_mae
+    # MAE by hour
+    mae_by_hour = results_df.groupby('hour_of_day')['abs_error'].mean()
+    metrics['by_hour_mae'] = {str(k): v for k, v in mae_by_hour.to_dict().items()}
 
-    # Improvements
-    m["improvement_over_lag24"] = improvement(base_lag24_mae, m["mae"])
-    m["improvement_over_linehour"] = improvement(base_linehour_mae, m["mae"])
+    # Top 10 worst lines by MAE
+    mae_by_line = results_df.groupby('line_name')['abs_error'].mean().sort_values(ascending=False)
+    metrics['top10_worst_lines_mae'] = mae_by_line.head(10).to_dict()
 
-    # Segment metrics
-    m["by_hour"] = segment_eval(val_df_bl, y_val, y_pred_real, "hour_of_day")
+    # --- 5. Calculate Baselines & Improvement ---
+    b24, b168, blinehour = compute_baselines(train_df, val_df)
+    base_mae_lag24 = mae(y_val, b24)
+    base_mae_linehour = mae(y_val, blinehour)
 
-    # Worst 10 lines
-    worst_lines = (
-        val_df.assign(err=np.abs(y_val - y_pred_real))
-        .groupby("line_name")["err"]
-        .mean()
-        .sort_values(ascending=False)
-        .head(10)
-        .to_dict()
-    )
-    m["top10_worst_lines"] = {str(k): float(v) for k, v in worst_lines.items()}
+    metrics["baseline_mae_lag24"] = base_mae_lag24
+    metrics["baseline_mae_lag168"] = mae(y_val, b168)
+    metrics["baseline_mae_linehour"] = base_mae_linehour
+    metrics["improvement_over_lag24"] = improvement(base_mae_lag24, metrics["mae"])
+    metrics["improvement_over_linehour"] = improvement(base_mae_linehour, metrics["mae"])
 
-    # Artifacts
+    # --- 5. Generate and Save Artifacts ---
     fi_csv, fi_plot = generate_feature_importance(model, model_name, X_val)
     shap_plot = generate_shap(model, model_name, X_val)
 
-    m["feature_importance_csv"] = str(fi_csv)
-    m["feature_importance_plot"] = str(fi_plot)
-    m["shap_plot"] = str(shap_plot)
-    m["prediction_time_sec"] = pred_time
+    metrics["feature_importance_csv"] = str(fi_csv)
+    metrics["feature_importance_plot"] = str(fi_plot)
+    metrics["shap_plot"] = str(shap_plot)
 
-    # Save
-    metrics_json = REPORT_DIR / f"metrics_{model_name}.json"
-    metrics_csv = REPORT_DIR / f"metrics_{model_name}.csv"
-    metrics_json.write_text(json.dumps(m, indent=2))
-    pd.DataFrame([m]).to_csv(metrics_csv, index=False)
-    print(f"✅ created metrics for {model_name} → {metrics_json}")
-    return m
+    # Save the detailed metrics for this model
+    metrics_json_path = REPORT_DIR / f"metrics_{model_name}.json"
+    metrics_csv_path = REPORT_DIR / f"metrics_{model_name}.csv"
+    metrics_json_path.write_text(json.dumps(metrics, indent=2))
+    pd.DataFrame([metrics]).to_csv(metrics_csv_path, index=False)
 
-
-# ============================================================
-# Per-model completion (fill missing)
-# ============================================================
-def ensure_model_metrics_and_artifacts(model_file, train_df, val_df):
-    """
-    For a given model file, ensure that metrics JSON/CSV,
-    feature importance CSV/PNG, and SHAP PNG exist.
-    If metrics JSON exists, load it and only fill missing artifacts.
-    """
-    model_name = model_file.stem
-    metrics_json = REPORT_DIR / f"metrics_{model_name}.json"
-
-    # If metrics do not exist, run full eval
-    if not metrics_json.exists():
-        model = lgb.Booster(model_file=str(model_file))
-        return evaluate_model_fresh(model_name, model, train_df, val_df)
-
-    # If metrics exist, load them and check artifacts
-    with open(metrics_json, "r") as f:
-        m = json.load(f)
-
-    # We still need X_val to generate missing artifacts
-    val_df_local = val_df.copy()
-    X_val = val_df_local.drop(columns=["y"])
-    for c in ["line_name", "season"]:
-        if c in X_val.columns:
-            X_val[c] = X_val[c].astype("category")
-
-    model = lgb.Booster(model_file=str(model_file))
-
-    # feature importance
-    fi_csv = REPORT_DIR / f"feature_importance_{model_name}.csv"
-    fi_plot = FIG_DIR / f"feature_importance_{model_name}.png"
-    if (not fi_csv.exists()) or (not fi_plot.exists()):
-        fi_csv, fi_plot = generate_feature_importance(model, model_name, X_val)
-        m["feature_importance_csv"] = str(fi_csv)
-        m["feature_importance_plot"] = str(fi_plot)
-
-    # shap
-    shap_plot = FIG_DIR / f"shap_summary_{model_name}.png"
-    if not shap_plot.exists():
-        shap_plot = generate_shap(model, model_name, X_val)
-        m["shap_plot"] = str(shap_plot)
-
-    # persist updated metrics if modified
-    (REPORT_DIR / f"metrics_{model_name}.json").write_text(json.dumps(m, indent=2))
-    pd.DataFrame([m]).to_csv(REPORT_DIR / f"metrics_{model_name}.csv", index=False)
-    print(f"ℹ︎ updated existing metrics for {model_name}")
-    return m
+    print(f"✅ Metrics and artifacts created for {model_name}")
+    return metrics
 
 
-# ============================================================
-# Global comparison
-# ============================================================
-def write_global_comparison(all_metrics):
-    """Write one global comparison file that contains ALL models' metrics."""
-    df = pd.DataFrame(all_metrics)
-    summary_csv = REPORT_DIR / "evaluation_summary_all.csv"
-    summary_json = REPORT_DIR / "evaluation_summary_all.json"
-    df.to_csv(summary_csv, index=False)
-    summary_json.write_text(json.dumps(all_metrics, indent=2))
-    print(f"\n📊 global comparison written → {summary_csv}")
+# ==============================================================================
+# Main Orchestration
+# ==============================================================================
 
 
-# ============================================================
-# Main
-# ============================================================
 def main():
+    """
+    Main function to orchestrate the model evaluation pipeline.
+    """
     ensure_dirs()
-
     train_df, val_df = load_datasets()
+    if train_df is None:
+        return
 
-    # discover ALL model files
+    # Discover all model files in the models directory
     model_files = sorted(MODEL_DIR.glob("*.txt"))
     if not model_files:
         print("No model files found in /models. Nothing to evaluate.")
@@ -312,18 +311,50 @@ def main():
 
     all_metrics = []
     for model_file in model_files:
-        print(f"\n=== processing model: {model_file.name} ===")
-        m = ensure_model_metrics_and_artifacts(model_file, train_df, val_df)
-        all_metrics.append(m)
+        print(f"\n=== Processing Model: {model_file.name} ===")
+        model_name = model_file.stem
+        metrics_json_path = REPORT_DIR / f"metrics_{model_name}.json"
 
-    # After all models are normalized/completed, write a new global comparison
+        # --- Dynamic Configuration Loading ---
+        # This is the key to robust evaluation.
+        match = re.search(r"(v\d+)", model_name)
+        if not match:
+            print(f"SKIPPING: Could not parse version from '{model_name}'.")
+            continue
+        version = match.group(1)
+
+        try:
+            cfg = load_config(version)
+        except FileNotFoundError:
+            print(f"SKIPPING: Config file for version '{version}' not found.")
+            continue
+
+        # If metrics already exist, we don't re-evaluate, saving time.
+        # To force re-evaluation, delete the corresponding metrics JSON file.
+        if metrics_json_path.exists():
+            print(f"  -> Metrics file found. Loading existing metrics for {model_name}.")
+            with open(metrics_json_path, "r") as f:
+                m = json.load(f)
+            all_metrics.append(m)
+        else:
+            # If no metrics exist, run the full evaluation.
+            model = lgb.Booster(model_file=str(model_file))
+            m = evaluate_model(model_name, model, train_df, val_df, cfg)
+            all_metrics.append(m)
+
+    # After processing all models, write a global comparison report
     if all_metrics:
-        write_global_comparison(all_metrics)
+        summary_df = pd.DataFrame(all_metrics)
+        summary_csv_path = REPORT_DIR / "evaluation_summary_all.csv"
+        summary_json_path = REPORT_DIR / "evaluation_summary_all.json"
+        summary_df.to_csv(summary_csv_path, index=False)
+        summary_json_path.write_text(
+            json.dumps(all_metrics, indent=2, default=str)
+        )
+        print(f"\n📊 Global comparison report updated -> {summary_csv_path}")
 
-    print("\n✅ evaluation finished for all models.")
+    print("\n✅ Evaluation pipeline finished successfully.")
 
 
 if __name__ == "__main__":
     main()
-
-

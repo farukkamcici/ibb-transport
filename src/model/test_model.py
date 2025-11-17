@@ -1,219 +1,197 @@
-import pandas as pd
-import lightgbm as lgb
+'''
+This script tests a single, specified model version against the unseen test set.
+It provides a comprehensive report on the model's performance, including
+comparisons against baselines and segment-level error analysis.
+
+Usage:
+    python src/model/test_model.py <version>
+
+Example:
+    python src/model/test_model.py v5
+'''
+
+import argparse
 import json
-import numpy as np
 import time
 from pathlib import Path
-from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-# --- 1. Configuration ---
-ROOT_DIR = Path(__file__).resolve().parent.parent.parent
-MODEL_DIR = ROOT_DIR / "models"
-DATA_DIR = ROOT_DIR / "data" / "processed" / "split_features"
-REPORTS_DIR = ROOT_DIR / "reports"
+import lightgbm as lgb
+import numpy as np
+import pandas as pd
 
-# Paths to the data files
-TEST_DATA_PATH = DATA_DIR / "test_features.parquet"
-TRAIN_DATA_PATH = DATA_DIR / "train_features.parquet"  # Needed for v2 denormalization
-# baseline_linehour_avg.parquet has been removed as requested
-
-MODELS_TO_TEST = {
-    "lgbm_transport_v4": {
-        "path": MODEL_DIR / "lgbm_transport_v4.txt",  # .txt model file
-        "needs_denormalization": False
-    },
-    "lgbm_transport_v2": {
-        "path": MODEL_DIR / "lgbm_transport_v2.txt",  # .txt model file
-        "needs_denormalization": True
-    }
-}
-
-# Feature list from your v4 feature importance list
-FEATURES = [
-    'roll_mean_3h', 'lag_1h', 'lag_2h', 'hour_of_day', 'lag_3h',
-    'roll_mean_24h', 'roll_mean_6h', 'line_name', 'roll_std_3h',
-    'roll_std_6h', 'roll_std_24h', 'roll_mean_12h', 'roll_std_12h',
-    'lag_168h', 'lag_24h', 'day_of_week', 'lag_12h', 'month',
-    'temperature_2m', 'lag_48h', 'wind_speed_10m', 'is_holiday',
-    'season', 'is_school_term', 'precipitation', 'is_weekend',
-    'holiday_win_m1', 'holiday_win_p1'
-]
-TARGET_COLUMN = "y"  # As requested, using 'y' as the target
-# Corrected categorical features list
-CATEGORICAL_FEATURES = ["line_name", "season"]
+from utils.config_loader import load_config
+from utils.paths import MODEL_DIR, REPORT_DIR, SPLIT_FEATURES_DIR
 
 
-# --- 2. Metric & Helper Functions ---
+# ==============================================================================
+# Metric & Helper Functions (Consistent with eval_model.py)
+# ==============================================================================
+
+
+def mae(y_true, y_pred):
+    """Calculates Mean Absolute Error."""
+    return float(np.mean(np.abs(y_true - y_pred)))
+
+
+def rmse(y_true, y_pred):
+    """Calculates Root Mean Squared Error."""
+    return float(np.sqrt(np.mean((y_true - y_pred) ** 2)))
 
 def smape(y_true, y_pred):
-    """Symmetric Mean Absolute Percentage Error (SMAPE)"""
-    y_true, y_pred = np.array(y_true), np.array(y_pred)
-    numerator = np.abs(y_pred - y_true)
+    """Calculates Symmetric Mean Absolute Percentage Error."""
+    numerator = np.abs(y_true - y_pred)
     denominator = (np.abs(y_true) + np.abs(y_pred)) / 2.0
-    mask = denominator == 0
-    ratio = np.zeros_like(denominator)
-    ratio[~mask] = numerator[~mask] / denominator[~mask]
-    return np.mean(ratio)
+    return float(np.mean(numerator / (denominator + 1e-8)))
 
+def improvement(base, model):
+    """Calculates the percentage improvement of a model over a baseline."""
+    if base == 0:
+        return np.nan
+    return float((base - model) / base * 100)
 
-def calculate_metrics_by_group(df, group_col, y_true_col, y_pred_col):
-    """Calculates MAE by a specific group (like hour or line)."""
-    grouped = df.groupby(group_col)
-    metrics = grouped.apply(lambda x: mean_absolute_error(x[y_true_col], x[y_pred_col]))
-    return metrics.sort_values(ascending=False)
-
-
-def denormalize_predictions(train_df, val_df, y_pred_norm):
+def denormalize_predictions(train_df, test_df, y_pred_norm):
     """
-    Restore per-line normalized predictions to real scale.
-
-    This function needs the 'line_name' from val_df and stats from train_df.
+    Restores per-line normalized predictions to their original, real scale.
     """
-    # Get the mean/std stats from the TRAINING data, using 'y' as target
-    stats = train_df.groupby("line_name")[TARGET_COLUMN].agg(["mean", "std"]).reset_index()
-
-    # Merge stats onto the VALIDATION/TEST data's line_name
-    merged = val_df[["line_name"]].merge(stats, on="line_name", how="left")
-
-    # Handle any potential new lines in test set not seen in train set
-    merged['mean'] = merged['mean'].fillna(train_df[TARGET_COLUMN].mean())
-    merged['std'] = merged['std'].fillna(train_df[TARGET_COLUMN].std())
-
+    stats = train_df.groupby("line_name")["y"].agg(["mean", "std"]).reset_index()
+    merged = test_df[["line_name"]].merge(stats, on="line_name", how="left")
+    merged["mean"] = merged["mean"].fillna(train_df["y"].mean())
+    merged["std"] = merged["std"].fillna(train_df["y"].std())
     line_mean = merged["mean"].values
-    line_std = merged["std"].values + 1e-6  # Add epsilon to avoid division by zero
-
+    line_std = merged["std"].values + 1e-6
     return y_pred_norm * line_std + line_mean
 
 
-# --- 3. Main Test Function ---
+# ==============================================================================
+# Main Test Function
+# ==============================================================================
 
-def main():
-    print(f"Project Root Directory: {ROOT_DIR}")
 
-    # --- Load Data ---
-    print("Loading datasets...")
+def main(version: str):
+    """
+    Loads a model and its configuration, runs it on the test set,
+    and generates a detailed performance report.
+    """
+    print(f"--- Starting Test for Model Version: {version} ---")
+
+    # --- 1. Load Configuration ---
     try:
-        test_df = pd.read_parquet(TEST_DATA_PATH)
-        # We need train_df to get the stats for v2 denormalization
-        train_df = pd.read_parquet(TRAIN_DATA_PATH)
+        cfg = load_config(version)
+    except FileNotFoundError:
+        print(f"ERROR: Configuration file for version '{version}' not found.")
+        return
+
+    model_name = cfg["model"]["name"]
+    model_filename = cfg["model"]["final_model_name"]
+    model_path = MODEL_DIR / model_filename
+
+    print(f"Loading model: {model_path}")
+    if not model_path.exists():
+        print(f"ERROR: Model file not found at '{model_path}'.")
+        print("Please ensure the model has been trained first.")
+        return
+
+    # --- 2. Load Data ---
+    print("Loading train and test datasets...")
+    try:
+        train_df = pd.read_parquet(SPLIT_FEATURES_DIR / "train_features.parquet")
+        test_df = pd.read_parquet(SPLIT_FEATURES_DIR / "test_features.parquet")
     except FileNotFoundError as e:
-        print(f"ERROR: Data file not found: {e}")
-        print("Please ensure 'test_features.parquet' and 'train_features.parquet' are in 'data/processed'.")
+        print(f"ERROR: Could not find data files at {SPLIT_FEATURES_DIR}.")
+        print(f"Please run the feature pipeline first. Original error: {e}")
         return
 
-    # Prepare Test Set
-    X_test = test_df[FEATURES].copy()
-    for col in CATEGORICAL_FEATURES:
-        if col in X_test.columns:
-            X_test[col] = X_test[col].astype('category')
-        else:
-            print(f"Warning: Categorical feature '{col}' not found in X_test columns.")
+    # --- 3. Prepare Test Data ---
+    print("Preparing test data...")
+    model_features = cfg["features"]["all"]
+    cat_features = cfg["features"]["categorical"]
 
-    y_test = test_df[TARGET_COLUMN]
-    print(f"Found {len(y_test)} samples in test set.")
+    features_to_use = [f for f in model_features if f in test_df.columns]
+    X_test = test_df[features_to_use].copy()
+    y_test = test_df["y"]
 
-    # --- Compute Baselines ---
-    print("Calculating baseline metrics (handling NaNs)...")
-    try:
-        # --- Baseline Lag 24h ---
-        # Create a temporary DataFrame and drop rows where EITHER y_test or the lag is NaN
-        temp_df_24 = test_df[[TARGET_COLUMN, 'lag_24h']].dropna()
-        y_test_24 = temp_df_24[TARGET_COLUMN]
-        baseline_pred_24 = temp_df_24['lag_24h']
-        baseline_mae_lag24 = mean_absolute_error(y_test_24, baseline_pred_24)
-        print(f"Baseline MAE (Lag 24h) calculated on {len(y_test_24)} non-NaN samples.")
+    # Use the same robust categorical encoding as the evaluation script
+    for c in cat_features:
+        if c in X_test.columns:
+            all_cats = pd.concat([train_df, test_df])[c].astype("category").cat.categories
+            X_test[c] = pd.Categorical(X_test[c], categories=all_cats, ordered=False)
 
-        # --- Baseline Lag 168h ---
-        # Do the same for the 168h lag
-        temp_df_168 = test_df[[TARGET_COLUMN, 'lag_168h']].dropna()
-        y_test_168 = temp_df_168[TARGET_COLUMN]
-        baseline_pred_168 = temp_df_168['lag_168h']
-        baseline_mae_lag168 = mean_absolute_error(y_test_168, baseline_pred_168)
-        print(f"Baseline MAE (Lag 168h) calculated on {len(y_test_168)} non-NaN samples.")
+    # --- 4. Load Model and Predict ---
+    model = lgb.Booster(model_file=str(model_path))
 
-    except KeyError as e:
-        print(f"ERROR: Baseline lag column not found ({e}).")
-        print("Please ensure 'lag_24h' and 'lag_168h' (raw target lags) are in 'test_features.parquet'.")
-        return
+    print("Making predictions on the test set...")
+    start_time = time.time()
+    y_pred = model.predict(X_test, num_iteration=model.best_iteration)
+    prediction_time = time.time() - start_time
 
-    print(f"Baseline MAE (Lag 24h): {baseline_mae_lag24:.2f}")
-    print(f"Baseline MAE (Lag 168h): {baseline_mae_lag168:.2f}")
+    if cfg["features"].get("needs_denormalization", False):
+        print("Denormalizing predictions...")
+        y_pred = denormalize_predictions(train_df, test_df, y_pred)
 
+    # --- 5. Calculate Metrics ---
+    print("Calculating performance metrics...")
+    report = {
+        "model_name": model_name,
+        "dataset": "Unseen Test Set",
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "n_samples": len(y_test),
+        "prediction_time_sec": prediction_time,
+        "mae": mae(y_test, y_pred),
+        "rmse": rmse(y_test, y_pred),
+        "smape": smape(y_test, y_pred),
+    }
 
-    test_results = {}
+    # --- 6. Calculate Baselines & Segment-Level Errors ---
+    baseline_mae_lag24 = mae(y_test, test_df["lag_24h"])
+    report["baseline_mae_lag24"] = baseline_mae_lag24
+    report["improvement_over_lag24_pct"] = improvement(baseline_mae_lag24, report["mae"])
 
-    # --- Test Models ---
-    for model_name, config in MODELS_TO_TEST.items():
-        print(f"\n--- Testing Model: {model_name} ---")
+    results_df = test_df[["hour_of_day", "line_name"]].copy()
+    results_df['y_true'] = y_test
+    results_df['y_pred'] = y_pred
+    results_df['abs_error'] = np.abs(results_df['y_true'] - results_df['y_pred'])
 
-        try:
-            # Load the model from .txt file
-            model = lgb.Booster(model_file=str(config["path"]))
-        except Exception as e:
-            print(f"ERROR: Could not load model file: {config['path']}. Error: {e}")
-            continue
+    mae_by_hour = results_df.groupby('hour_of_day')['abs_error'].mean()
+    report['by_hour_mae'] = {str(k): v for k, v in mae_by_hour.to_dict().items()}
 
-        print("Model loaded. Starting prediction...")
-        start_time = time.time()
-        y_pred = model.predict(X_test)
-        prediction_time = time.time() - start_time
-        print(f"Prediction finished in {prediction_time:.2f} seconds.")
+    mae_by_line = results_df.groupby('line_name')['abs_error'].mean().sort_values(ascending=False)
+    report['top10_worst_lines_mae'] = mae_by_line.head(10).to_dict()
 
-        # --- Denormalization (For v2 only) ---
-        if config["needs_denormalization"]:
-            print("Applying denormalization (inverse_transform)...")
-            try:
-                y_pred = denormalize_predictions(train_df, test_df, y_pred)
-                print("Denormalization complete.")
-            except Exception as e:
-                print(f"ERROR during denormalization: {e}")
-                continue
+    # --- 7. Display and Save Report ---
+    print("\n--- Test Report ---")
+    print(f"Model: {report['model_name']}")
+    print(f"  MAE: {report['mae']:.2f}")
+    print(f"  RMSE: {report['rmse']:.2f}")
+    print(f"  SMAPE: {report['smape']:.4f}")
+    print(f"  Improvement over Lag 24h: {report['improvement_over_lag24_pct']:.2f}%")
+    print("-------------------")
 
-        # --- Calculate Metrics ---
-        print("Calculating metrics...")
-        mae = mean_absolute_error(y_test, y_pred)
-        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-        smp = smape(y_test, y_pred)
-
-        results_df = test_df[['hour_of_day', 'line_name']].copy()
-        results_df['y_true'] = y_test
-        results_df['y_pred'] = y_pred
-
-        by_hour_metrics = calculate_metrics_by_group(results_df, 'hour_of_day', 'y_true', 'y_pred')
-        by_line_metrics = calculate_metrics_by_group(results_df, 'line_name', 'y_true', 'y_pred')
-
-        # --- Report Results ---
-        report = {
-            "model_name": model_name,
-            "dataset": "TEST_SET (Unseen)",
-            "n_samples": len(y_test),
-            "mae": mae,
-            "rmse": rmse,
-            "smape": smp,
-            "prediction_time_sec": prediction_time,
-            "baseline_mae_lag24": baseline_mae_lag24,
-            "baseline_mae_lag168": baseline_mae_lag168,
-            "improvement_over_lag24_pct": (1 - (mae / baseline_mae_lag24)) * 100,
-            "improvement_over_lag168_pct": (1 - (mae / baseline_mae_lag168)) * 100,
-            "by_hour (MAE)": by_hour_metrics.to_dict(),
-            "top10_worst_lines (MAE)": by_line_metrics.head(10).to_dict()
-        }
-        test_results[model_name] = report
-
-        print(f"TEST RESULTS ({model_name}):")
-        print(f"  MAE: {mae:.2f}")
-        print(f"  RMSE: {rmse:.2f}")
-        print(f"  SMAPE: {smp:.4f}")
-
-    # --- Save Final Report ---
-    output_path = REPORTS_DIR / "test_set_model_comparison_report_v2_v4.json"
-    REPORTS_DIR.mkdir(parents=True, exist_ok=True)  # Ensure reports dir exists
+    output_path = REPORT_DIR / f"test_report_{model_name}.json"
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
     with open(output_path, 'w', encoding='utf-8') as f:
-        json.dump(test_results, f, indent=4, ensure_ascii=False)
+        json.dump(report, f, indent=4)
 
-    print(f"\n--- Test Complete ---")
-    print(f"Detailed comparison report saved to: {output_path}")
+    print(f"\n✅ Detailed test report saved to: {output_path}")
+
+
+# ==============================================================================
+# Script Entrypoint
+# ==============================================================================
 
 
 if __name__ == "__main__":
-    main()
+    # --- Argument Parsing ---
+    # Allows specifying the model version to test from the command line.
+    parser = argparse.ArgumentParser(
+        description="Test a specific, trained model version against the unseen test set.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        "version",
+        type=str,
+        help="The model version to test (e.g., 'v1', 'v5').\n" 
+             "This corresponds to the configuration file in 'src/model/config/'.",
+    )
+    args = parser.parse_args()
+
+    main(args.version)

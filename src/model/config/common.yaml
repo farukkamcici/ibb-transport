@@ -10,6 +10,7 @@ features:
   target: "y"
   outlier_cap_z: 3.0
   normalize_by_line: false
+  needs_denormalization: false
 
 train:
   early_stopping_rounds: 100
