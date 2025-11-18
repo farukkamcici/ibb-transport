@@ -1,18 +1,18 @@
 model:
-  name: "lgbm_transport_v5"
-  description: "Anti-overfit model. No short-term lags. TSCV-validated."
+  name: "lgbm_transport_v6"
+  description: "Anti-overfit model. No short-term lags. TSCV-validated. Regreesion model over regression_l1."
   num_boost_round: 2000
-  final_model_name: "lgbm_transport_v5.txt"
+  final_model_name: "lgbm_transport_v6.txt"
 
 params:
-  objective: "regression_l1"
+  objective: "regression"
   metric: ["l1", "l2"]
   boosting_type: "gbdt"
   learning_rate: 0.03
   n_jobs: -1
   verbose: -1
   deterministic: true
-  num_leaves: 10
+  num_leaves: 31
   min_data_in_leaf: 500
   feature_fraction: 0.8
   bagging_fraction: 0.8
@@ -22,7 +22,7 @@ params:
 
 train:
   early_stopping_rounds: 100
-  eval_freq: 500
+  eval_freq: 100
   n_splits: 3
   baseline_mae_target: 273.0
   datetime_sort_col: "datetime"

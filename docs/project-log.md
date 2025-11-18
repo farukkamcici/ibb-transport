@@ -1,7 +1,6 @@
-
 # Project Logbook
 
-_Last updated: 2025-11-13_
+_Last updated: 2025-11-17_
 
 ## Log Schema
 - **Timestamp:** Commit date and hour (local timezone) recorded from repository history.
@@ -9,6 +8,25 @@ _Last updated: 2025-11-13_
 - **Summary:** One-line status of the project immediately after the commit.
 - **Details:** Key updates introduced in the commit with brief explanations.
 - **Notes:** Additional context or decisions relevant to the logged work.
+
+## Entry · 2025-11-17 16:17 (+03)
+
+### Commit
+- **Hash:** `b441ca9`
+- **Message:** `refactor: Overhaul model evaluation and testing scripts for robustness`
+
+### Summary
+- Refactored the model evaluation and testing scripts to be configuration-driven, robustly handling multiple model versions and fixing critical data-handling bugs.
+
+### Details
+- Rewrote `src/model/eval_model.py` to dynamically load the correct configuration (`v1.yaml`, `v5.yaml`, etc.) for each model being evaluated, ensuring a perfect match with the training environment.
+- Fixed a persistent `ValueError` related to categorical feature encoding by ensuring the evaluation script mimics the training script's data handling (using combined train+validation sets for category mapping).
+- Re-integrated denormalization logic into `eval_model.py` (controlled by a `needs_denormalization` config flag) to correctly process older, normalized models.
+- Rewrote `src/model/test_model.py` as a command-line tool that accepts a model version (e.g., `v5`) and loads its configuration dynamically, removing all hardcoded values.
+- Added detailed segment analysis (MAE by hour, top 10 worst lines) back into the evaluation and test reports.
+
+### Notes
+- This major refactoring makes the model evaluation and testing pipeline significantly more robust, maintainable, and resilient to changes in model configurations.
 
 ## Entry · 2025-11-13 20:43 (+03)
 

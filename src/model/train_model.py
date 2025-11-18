@@ -20,8 +20,8 @@ from utils.paths import SPLIT_FEATURES_DIR, MODEL_DIR, ensure_dirs
 from utils.config_loader import load_config
 
 
-# === Load Config (selects v5) ===
-CFG = load_config("v5")
+# === Load Config ===
+CFG = load_config("v6")
 
 
 # === MLflow Setup  ===
