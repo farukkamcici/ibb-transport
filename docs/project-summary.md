@@ -29,10 +29,36 @@ This document captures delivery progress against the İstanbul Transit Crowding 
 - 2025-11-04: Modified `src/features/build_final_features.py` to retain the `datetime` column while dropping only `date`, ensuring downstream scripts can slice features chronologically.
 - 2025-11-04: Added `src/features/split_features.py` to emit train, validation, and test parquet datasets from `features_pd.parquet` and extended `requirements.txt` with `numpy`, `lightgbm`, and `scikit-learn` to support upcoming modeling work.
 
-## Modeling & Evaluation
-- 2025-11-05: Introduced `src/model/train_model.py`, a normalized LightGBM training pipeline that caps per-line outliers, derives `y_norm`, casts categorical inputs, trains with early stopping, and saves the booster, metrics JSON, feature-importance CSV, and top-20 gain plot into `models/`, `reports/logs`, and `reports/figs` for reproducible v1 runs.
-- 2025-11-05: Added `src/model/eval_model.py` to reload the v1 and planned v2 boosters, denormalize predictions using train-set statistics, compare them against lag-24h/lag-168h/line+hour baselines, emit MAE–RMSE–SMAPE summaries plus per-hour and worst-line diagnostics, and generate SHAP summary plots for explainability.
-- 2025-11-05: Tightened the feature split workflow by parsing `datetime`, dropping both `datetime` and `year` before export, and appending `matplotlib` + `shap` to `requirements.txt` so the new training and evaluation scripts run with their plotting and explainability dependencies satisfied.
-- 2025-11-10: Refactored the modeling pipeline to be configuration-driven and integrated MLflow for experiment tracking. The evaluation script was also unified to automatically discover, evaluate, and compare all trained models, making the MLOps cycle more robust and scalable.
-- 2025-11-13: Added a new model (v4) with a different set of hyperparameters and updated the evaluation to include it. A new script `src/model/test_model.py` was added to allow for quick testing of trained models.
-- 2025-11-17: Refactored `src/model/eval_model.py` and `src/model/test_model.py` to be fully configuration-driven. The scripts now dynamically load settings for each model version, robustly handling differences in features, categorical encoding, and normalization, thus resolving critical evaluation bugs and improving maintainability.
+## Modeling & Evaluation                                                                                                                                    
+
+- 2025-11-05: Introduced `src/model/train_model.py`, a normalized LightGBM training pipeline that caps per-line outliers, derives `y_norm`, casts categorica
+
+l inputs, trains with early stopping, and saves the booster, metrics JSON, feature-importance CSV, and top-20 gain plot into `models/`, `reports/logs`, and 
+
+`reports/figs` for reproducible v1 runs.                                                                                                                    
+
+- 2025-11-05: Added `src/model/eval_model.py` to reload the v1 and planned v2 boosters, denormalize predictions using train-set statistics, compare them aga
+
+inst lag-24h/lag-168h/line+hour baselines, emit MAE–RMSE–SMAPE summaries plus per-hour and worst-line diagnostics, and generate SHAP summary plots for expla
+
+inability.                                                                                                                                                  
+
+- 2025-11-05: Tightened the feature split workflow by parsing `datetime`, dropping both `datetime` and `year` before export, and appending `matplotlib` + `s
+
+hap` to `requirements.txt` so the new training and evaluation scripts run with their plotting and explainability dependencies satisfied.                    
+
+- 2025-11-10: Refactored the modeling pipeline to be configuration-driven and integrated MLflow for experiment tracking. The evaluation script was also unif
+
+ied to automatically discover, evaluate, and compare all trained models, making the MLOps cycle more robust and scalable.                                   
+
+- 2025-11-13: Added a new model (v4) with a different set of hyperparameters and updated the evaluation to include it. A new script `src/model/test_model.py
+
+` was added to allow for quick testing of trained models.                                                                                                   
+
+- 2025-11-17: Refactored `src/model/eval_model.py` and `src/model/test_model.py` to be fully configuration-driven. The scripts now dynamically load settings
+
+ for each model version, robustly handling differences in features, categorical encoding, and normalization, thus resolving critical evaluation bugs and imp
+
+roving maintainability.
+
+- 2025-11-18: Generated evaluation reports for the `lgbm_transport_v6` model, which demonstrates a significant improvement over baseline models with a test set MAE of 72.77. Updated project documentation to include these latest results.
