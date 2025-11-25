@@ -9,6 +9,41 @@ _Last updated: 2025-11-25_
 - **Details:** Key updates introduced in the commit with brief explanations.
 - **Notes:** Additional context or decisions relevant to the logged work.
 
+## Entry · 2025-11-25 16:24 (+03)
+
+### Commit
+- **Hash:** `5b92677c931f5d11e42bc150c99481d277794a58`
+- **Message:** `chore: remove redundant documentation; integrate hourly weather sync and nowcast UI enhancements`
+
+### Summary
+- Major UI/UX improvements to the weather nowcast component with unified header layout, smooth animations, and simplified weather service architecture. Removed redundant documentation files.
+
+### Details
+- **Frontend Weather Badge Redesign:**
+  - Refactored Nowcast component to align perfectly with SearchBar in unified header row (fixed h-12 height)
+  - Removed weather icon display and user location dependency - now Istanbul-specific with fixed coordinates
+  - Implemented smooth dropdown animations (400ms ease-in-out with staggered item transitions)
+  - Added intelligent hover/click behavior with delays (300ms expand, 800ms collapse)
+  - Cleaned up 100+ lines of redundant code (icon mapping, location throttling, unused functions)
+  - Simplified to show only temperature + "İstanbul" label with hourly forecast expansion
+- **Layout Improvements:**
+  - Updated SearchBar and weather badge to use consistent h-12 height for perfect alignment
+  - Changed weather badge to dynamic width (w-auto) in minimized state for content-based sizing
+  - Positioned both components in same row with proper gap spacing and z-index hierarchy
+- **Backend Weather Service:**
+  - Optimized weather.py with improved error handling and retry logic
+  - Created weather_backup.py preserving original implementation
+  - Streamlined nowcast API integration with OpenMeteo
+- **Documentation Cleanup:**
+  - Removed redundant GEMINI.md and Turkish README.md files
+  - Added frontend DESIGN_SYSTEM.md for UI component guidelines
+
+### Notes
+- Weather component now follows Istanbul-specific design pattern (aligns with app's transit focus)
+- Removed reverse geocoding complexity in favor of simpler, faster implementation
+- All animations tested and working consistently across mobile and desktop screens
+- Component refresh interval set to 30 minutes to balance freshness with API efficiency
+
 ## Entry · 2025-11-25 13:37 (+03)
 
 ### Commit
