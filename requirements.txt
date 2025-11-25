@@ -12,3 +12,12 @@ matplotlib
 shap
 PyYAML
 mlflow
+fastapi
+uvicorn
+httpx
+python-dotenv
+psycopg2-binary
+SQLAlchemy
+tenacity
+respx
+tenacity

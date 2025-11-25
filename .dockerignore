@@ -1,0 +1,52 @@
+# Git
+.git
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+build/
+dist/
+*.egg-info/
+*.so
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/build/
+frontend/out/
+frontend/.pnp*
+frontend/.yarn/*
+frontend/coverage/
+frontend/npm-debug.log*
+frontend/yarn-debug.log*
+frontend/yarn-error.log*
+
+# MLflow & Data
+mlruns/
+data/raw/
+data/interim/
+reports/
+docs/
+
+# Environment
+.env
+
+# Other
+.DS_Store
+*.log
+*.log*
