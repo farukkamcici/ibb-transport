@@ -1,4 +1,5 @@
 import BottomNav from '@/components/ui/BottomNav';
+import Nowcast from '@/components/ui/Nowcast';
 import { TRANSPORT_LINES } from '@/lib/dummyData';
 import { TrendingUp, ArrowRight } from 'lucide-react';
 
@@ -16,6 +17,7 @@ export default function ForecastPage() {
       </div>
 
       <div className="flex-1 px-4 space-y-4 overflow-y-auto">
+         <Nowcast />
          <h2 className="text-sm font-semibold uppercase tracking-wider text-gray-500">Most Crowded Now</h2>
          
          {sortedLines.map((line) => (

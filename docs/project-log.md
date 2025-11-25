@@ -1,5 +1,35 @@
 # Project Logbook
 
+_Last updated: 2025-11-25_
+
+## Log Schema
+- **Timestamp:** Commit date and hour (local timezone) recorded from repository history.
+- **Commit:** Hash and message identifying the change captured in the log.
+- **Summary:** One-line status of the project immediately after the commit.
+- **Details:** Key updates introduced in the commit with brief explanations.
+- **Notes:** Additional context or decisions relevant to the logged work.
+
+## Entry · 2025-11-25 13:37 (+03)
+
+### Commit
+- **Hash:** `b7a80b31542bae888082b79e6d01166e13178f30`
+- **Message:** `add backend API for admin, forecast, and line search; frontend admin dashboard integration, and deployment setup`
+
+### Summary
+- Developed the core backend API with endpoints for administration, forecasts, and line searches, and integrated the admin dashboard with the backend. Also, configured the production deployment environment.
+
+### Details
+- Created a FastAPI backend with routers for `admin`, `forecast`, and `lines`.
+- Implemented an admin dashboard in the frontend to interact with the new admin endpoints.
+- Added a search functionality for transport lines in the frontend.
+- Configured `docker-compose.yml` and `Dockerfile` for production deployment.
+- Added `DEPLOY.md` with deployment instructions.
+
+### Notes
+- This commit establishes the core backend functionality and prepares the project for production deployment.
+
+# Project Logbook
+
 _Last updated: 2025-11-24_
 
 ## Log Schema

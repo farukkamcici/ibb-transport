@@ -1,0 +1,2 @@
+- [x] Backend: Integrate a nowcast weather feature
+- [x] Frontend: Add nowcast weather feature to UI

@@ -70,6 +70,179 @@ def _process_weather_response(data: dict) -> dict:
     return forecasts
 
 
+
+
+
+# --- NOWCAST ---
+
+
+FALLBACK_NOWCAST_DATA = {
+
+
+    "temperature_2m": 15.0,
+
+
+    "precipitation": 0.0,
+
+
+    "wind_speed_10m": 5.0,
+
+
+}
+
+
+
+
+
+def fetch_nowcast_weather_data_sync(lat: float, lon: float) -> dict:
+
+
+    """
+
+
+    Synchronous version of weather fetching for nowcasting (15-minute intervals).
+
+
+    """
+
+
+    params = {
+
+
+        "latitude": lat,
+
+
+        "longitude": lon,
+
+
+        "minutely_15": "temperature_2m,precipitation,wind_speed_10m",
+
+
+        "forecast_days": 1,
+
+
+        "timezone": "Europe/Istanbul"
+
+
+    }
+
+
+
+
+
+    max_retries = 3
+
+
+    for attempt in range(max_retries):
+
+
+        try:
+
+
+            logger.info(f"Fetching nowcast weather (Sync), attempt {attempt + 1}...")
+
+
+            with httpx.Client(timeout=10.0) as client:
+
+
+                response = client.get(WEATHER_API_URL, params=params)
+
+
+                response.raise_for_status()
+
+
+                data = response.json()
+
+
+                return _process_nowcast_response(data)
+
+
+
+
+
+        except Exception as e:
+
+
+            logger.warning(f"Nowcast weather fetch failed (Attempt {attempt + 1}): {e}")
+
+
+            time.sleep(2)
+
+
+
+
+
+    logger.error("All nowcast weather retries failed. Using FALLBACK data.")
+
+
+    return {f"T+{i*15}": FALLBACK_NOWCAST_DATA for i in range(4)} # Fallback for next hour
+
+
+
+
+
+def _process_nowcast_response(data: dict) -> dict:
+
+
+    """Helper to parse Open-Meteo 15-minute interval response."""
+
+
+    if 'minutely_15' not in data:
+
+
+        raise ValueError("Invalid API response for nowcast")
+
+
+
+
+
+    nowcast_data = data['minutely_15']
+
+
+    forecasts = {}
+
+
+    for i, time_str in enumerate(nowcast_data['time']):
+
+
+        # Get the time difference from now in minutes
+
+
+        time_diff = (datetime.fromisoformat(time_str) - datetime.now()).total_seconds() / 60
+
+
+        # Round to nearest 15 minutes
+
+
+        time_key = f"T+{round(time_diff / 15) * 15}"
+
+
+        forecasts[time_key] = {
+
+
+            "temperature_2m": nowcast_data['temperature_2m'][i],
+
+
+            "precipitation": nowcast_data['precipitation'][i],
+
+
+            "wind_speed_10m": nowcast_data['wind_speed_10m'][i],
+
+
+        }
+
+
+    return forecasts
+
+
+
+
+
 # --- ASYNC VERSION (Optional/Legacy) ---
+
+
 async def fetch_weather_forecast(date: str, hour: int, lat: float, lon: float):
+
+
     pass
+

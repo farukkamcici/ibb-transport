@@ -4,7 +4,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .db import SessionLocal
-from .routers import admin, forecast, lines
+from .routers import admin, forecast, lines, nowcast
 from .services.store import FeatureStore
 from .utils.init_db import init_db
 from .state import AppState
@@ -62,6 +62,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.include_router(admin.router, prefix="/api")
 app.include_router(forecast.router, prefix="/api")
 app.include_router(lines.router, prefix="/api")
+app.include_router(nowcast.router, prefix="/api")
 
 @app.get("/")
 def read_root():
