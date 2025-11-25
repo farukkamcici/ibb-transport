@@ -38,9 +38,9 @@ export default function SearchBar() {
   };
 
   return (
-    <div className="relative w-full">
-      <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-surface/90 p-3 shadow-lg backdrop-blur-md">
-         <Search className="ml-1 h-5 w-5 text-secondary" />
+    <div className="relative w-full h-12">
+      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-surface/90 px-3 h-12 shadow-lg backdrop-blur-md">
+         <Search className="h-4 w-4 text-secondary shrink-0" />
          <input 
            type="text" 
            value={query}

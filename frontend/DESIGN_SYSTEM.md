@@ -71,3 +71,32 @@ The `TimeSlider` component is a range input that allows users to select a specif
 
 - **File:** `src/components/ui/TimeSlider.jsx`
 - **Usage:** Used inside the `LineDetailPanel` component.
+
+### `TemperatureBadge`
+
+The `TemperatureBadge` component displays current weather and expandable 6-hour forecast in a floating badge positioned in the top-right corner. Features intelligent location throttling and weather icons from OpenMeteo.
+
+- **File:** `src/components/ui/Nowcast.jsx`
+- **Usage:** Placed in the root layout (`src/app/layout.js`) for global visibility.
+- **Features:** 
+  - **Optimized API calls**: Only fetches temperature + weather codes
+  - **Expandable interface**: Click to show 6-hour forecast
+  - **Weather icons**: Uses OpenMeteo weather codes for emoji icons
+  - **Location throttling**: Prevents excessive API calls when moving
+  - **Smart caching**: 2-minute minimum between fetches, 30-minute auto-refresh
+  - **Movement detection**: Only fetches if moved >100 meters
+  - **Responsive design**: Adapts to mobile/desktop
+  - **Smooth animations**: Expand/collapse with slide transitions
+  - **Robust error handling**: Graceful fallbacks and user notifications
+
+### `Alert`
+
+The `Alert` component provides toast-style notifications for user feedback. It automatically dismisses after 5 seconds and includes a manual close button.
+
+- **File:** `src/components/ui/Alert.jsx`
+- **Usage:** Placed in the root layout for global alert handling.
+- **Features:**
+  - Slide-in animation from top
+  - Auto-dismiss functionality
+  - Manual close button
+  - Uses design system colors and styling

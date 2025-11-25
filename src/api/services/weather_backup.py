@@ -15,6 +15,7 @@ FALLBACK_WEATHER_DATA = {
     "wind_speed_10m": 5.0,
 }
 
+
 # --- SYNC VERSION FOR BATCH JOBS ---
 def fetch_daily_weather_data_sync(date: str, lat: float, lon: float) -> dict:
     """
@@ -50,6 +51,7 @@ def fetch_daily_weather_data_sync(date: str, lat: float, lon: float) -> dict:
     logger.error("All weather retries failed. Using FALLBACK data.")
     return {hour: FALLBACK_WEATHER_DATA for hour in range(24)}
 
+
 # --- HELPER ---
 def _process_weather_response(data: dict) -> dict:
     """Helper to parse Open-Meteo JSON response."""
@@ -67,73 +69,180 @@ def _process_weather_response(data: dict) -> dict:
         }
     return forecasts
 
+
+
+
+
 # --- NOWCAST ---
 
+
 FALLBACK_NOWCAST_DATA = {
+
+
     "temperature_2m": 15.0,
+
+
     "precipitation": 0.0,
+
+
     "wind_speed_10m": 5.0,
+
+
 }
 
+
+
+
+
 def fetch_nowcast_weather_data_sync(lat: float, lon: float) -> dict:
+
+
     """
-    Optimized weather fetching for temperature and 6-hour forecast.
+
+
+    Synchronous version of weather fetching for nowcasting (15-minute intervals).
+
+
     """
+
+
     params = {
+
+
         "latitude": lat,
+
+
         "longitude": lon,
-        "hourly": "temperature_2m,weather_code",
-        "forecast_hours": 7,  # Current + next 6 hours
+
+
+        "minutely_15": "temperature_2m,precipitation,wind_speed_10m",
+
+
+        "forecast_days": 1,
+
+
         "timezone": "Europe/Istanbul"
+
+
     }
 
+
+
+
+
     max_retries = 3
+
+
     for attempt in range(max_retries):
+
+
         try:
+
+
             logger.info(f"Fetching nowcast weather (Sync), attempt {attempt + 1}...")
+
+
             with httpx.Client(timeout=10.0) as client:
+
+
                 response = client.get(WEATHER_API_URL, params=params)
+
+
                 response.raise_for_status()
+
+
                 data = response.json()
+
+
                 return _process_nowcast_response(data)
 
+
+
+
+
         except Exception as e:
+
+
             logger.warning(f"Nowcast weather fetch failed (Attempt {attempt + 1}): {e}")
+
+
             time.sleep(2)
 
+
+
+
+
     logger.error("All nowcast weather retries failed. Using FALLBACK data.")
-    fallback_data = {}
-    for i in range(7):  # Current + next 6 hours
-        fallback_data[f"hour_{i}"] = {
-            "temperature_2m": 15.0 + i * 0.5,  # Slightly varying temperatures
-            "weather_code": None,
-            "time": f"{(datetime.now().hour + i) % 24:02d}:00"
-        }
-    return fallback_data
+
+
+    return {f"T+{i*15}": FALLBACK_NOWCAST_DATA for i in range(4)} # Fallback for next hour
+
+
+
+
 
 def _process_nowcast_response(data: dict) -> dict:
-    """Helper to parse Open-Meteo hourly response for temperature forecast."""
-    if 'hourly' not in data:
+
+
+    """Helper to parse Open-Meteo 15-minute interval response."""
+
+
+    if 'minutely_15' not in data:
+
+
         raise ValueError("Invalid API response for nowcast")
 
-    hourly_data = data['hourly']
+
+
+
+
+    nowcast_data = data['minutely_15']
+
+
     forecasts = {}
-    current_time = datetime.now()
-    
-    for i, time_str in enumerate(hourly_data['time']):
-        forecast_time = datetime.fromisoformat(time_str)
-        hours_from_now = int((forecast_time - current_time).total_seconds() / 3600)
-        
-        # Only include current hour and next 6 hours
-        if 0 <= hours_from_now <= 6:
-            forecasts[f"hour_{hours_from_now}"] = {
-                "temperature_2m": hourly_data['temperature_2m'][i],
-                "weather_code": hourly_data.get('weather_code', [None])[i] if hourly_data.get('weather_code') else None,
-                "time": forecast_time.strftime("%H:%M")
-            }
-    
+
+
+    for i, time_str in enumerate(nowcast_data['time']):
+
+
+        # Get the time difference from now in minutes
+
+
+        time_diff = (datetime.fromisoformat(time_str) - datetime.now()).total_seconds() / 60
+
+
+        # Round to nearest 15 minutes
+
+
+        time_key = f"T+{round(time_diff / 15) * 15}"
+
+
+        forecasts[time_key] = {
+
+
+            "temperature_2m": nowcast_data['temperature_2m'][i],
+
+
+            "precipitation": nowcast_data['precipitation'][i],
+
+
+            "wind_speed_10m": nowcast_data['wind_speed_10m'][i],
+
+
+        }
+
+
     return forecasts
 
+
+
+
+
 # --- ASYNC VERSION (Optional/Legacy) ---
+
+
 async def fetch_weather_forecast(date: str, hour: int, lat: float, lon: float):
+
+
     pass
+
