@@ -64,16 +64,19 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
         
         print(f"✓ Calendar features loaded: {calendar_features}")
         
+        # Build all prediction inputs in batch
+        batch_inputs = []
+        batch_metadata = []  # Store line_name and hour for later
+        
         for idx, line_name in enumerate(line_names):
             if idx % 100 == 0:
-                print(f"Progress: {idx}/{len(line_names)} lines processed, {processed_count} predictions made...")
+                print(f"Building inputs: {idx}/{len(line_names)} lines...")
 
             for hour in range(24):
                 weather_data = daily_weather_data.get(hour)
                 if not weather_data:
-                    continue  # Skip silently, this is expected
+                    continue
 
-                # Get historical lag features with seasonal matching
                 lag_features = store.get_historical_lags(line_name, hour, date_str)
 
                 model_input_data = {
@@ -81,19 +84,27 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
                     **calendar_features, **weather_data, **lag_features
                 }
                 model_input = ModelInput(**model_input_data)
+                batch_inputs.append(model_input.model_dump())
+                batch_metadata.append((line_name, hour))
 
-                df = pd.DataFrame([model_input.model_dump()])
-                df = df[COLUMN_ORDER]
-
-                # Enforce categorical types
-                df['line_name'] = df['line_name'].astype('category')
-                df['season'] = df['season'].astype('category')
-
-                # Run prediction
-                prediction_np = max(0, model.predict(df)[0])
-                prediction = float(prediction_np)
-
-                # Stats
+        # Batch prediction (much faster!)
+        if batch_inputs:
+            print(f"Running batch predictions for {len(batch_inputs)} records...")
+            df_batch = pd.DataFrame(batch_inputs)
+            df_batch = df_batch[COLUMN_ORDER]
+            df_batch['line_name'] = df_batch['line_name'].astype('category')
+            df_batch['season'] = df_batch['season'].astype('category')
+            
+            # Single batch prediction call
+            predictions = model.predict(df_batch)
+            print(f"Predictions complete! Processing results...")
+            
+            # Process results
+            for idx, (prediction_np, (line_name, hour)) in enumerate(zip(predictions, batch_metadata)):
+                if idx % 5000 == 0:
+                    print(f"Processing results: {idx}/{len(predictions)}...")
+                    
+                prediction = float(max(0, prediction_np))
                 max_capacity = store.line_max_capacity.get(line_name, store.global_average_max)
                 occupancy_pct = 0
                 if max_capacity > 0:
@@ -110,7 +121,9 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
                     "crowd_level": crowd_level,
                     "max_capacity": int(max_capacity)
                 })
-                processed_count += 1
+            
+            processed_count = len(forecasts_to_insert)
+            print(f"Result processing complete: {processed_count} forecasts ready.")
 
         # Bulk Upsert
         if forecasts_to_insert:
