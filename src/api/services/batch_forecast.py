@@ -45,23 +45,33 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
 
         # Fetch weather SYNC
         date_str = target_date.strftime("%Y-%m-%d")
+        print(f"Fetching weather data for {date_str}...")
         daily_weather_data = fetch_daily_weather_data_sync(date_str, ISTANBUL_LAT, ISTANBUL_LON)
+        print(f"Weather data fetched: {len(daily_weather_data)} hours available.")
 
         forecasts_to_insert = []
         processed_count = 0
 
         # Loop through lines and hours
-        for line_name in line_names:
-            calendar_features = store.get_calendar_features(date_str)
-            if not calendar_features:
-                print(f"No calendar features for {date_str}, skipping...")
-                continue
+        print(f"Starting prediction loop for {len(line_names)} lines × 24 hours...")
+        
+        # First check if calendar features exist
+        calendar_features = store.get_calendar_features(date_str)
+        if not calendar_features:
+            error_msg = f"❌ CRITICAL: No calendar features found for {date_str}! Job cannot proceed."
+            print(error_msg)
+            raise ValueError(error_msg)
+        
+        print(f"✓ Calendar features loaded: {calendar_features}")
+        
+        for idx, line_name in enumerate(line_names):
+            if idx % 100 == 0:
+                print(f"Progress: {idx}/{len(line_names)} lines processed, {processed_count} predictions made...")
 
             for hour in range(24):
                 weather_data = daily_weather_data.get(hour)
                 if not weather_data:
-                    print(f"No weather data for hour {hour}, skipping...")
-                    continue
+                    continue  # Skip silently, this is expected
 
                 # Get historical lag features with seasonal matching
                 lag_features = store.get_historical_lags(line_name, hour, date_str)
