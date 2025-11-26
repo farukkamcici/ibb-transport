@@ -64,6 +64,8 @@ export default function AdminDashboard() {
   const [isLoading, setIsLoading] = useState(false);
   const [triggerMessage, setTriggerMessage] = useState("");
   const [selectedError, setSelectedError] = useState(null);
+  const [testResult, setTestResult] = useState(null);
+  const [isTesting, setIsTesting] = useState(false);
 
   // Default: Yarın
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -118,6 +120,22 @@ export default function AdminDashboard() {
     }
   }
 
+  const handleTest = async () => {
+    setIsTesting(true);
+    setTestResult(null);
+    setTriggerMessage("");
+    try {
+      const res = await axios.post(`${API_URL}/admin/forecast/test?num_lines=10&num_hours=6`);
+      setTestResult(res.data);
+      setTriggerMessage("🧪 Test completed successfully!");
+    } catch (e) {
+      setTriggerMessage("❌ Test failed. Check console.");
+      console.error(e);
+    } finally {
+      setIsTesting(false);
+    }
+  }
+
   return (
     <div className="min-h-screen bg-black text-white p-6 md:p-10 font-sans selection:bg-blue-900 selection:text-white">
       <ErrorModal error={selectedError} onClose={() => setSelectedError(null)} />
@@ -147,6 +165,16 @@ export default function AdminDashboard() {
                     className="bg-transparent text-white text-sm focus:outline-none font-mono py-1"
                 />
             </div>
+
+            {/* Test Button */}
+            <button
+                onClick={handleTest}
+                disabled={isTesting}
+                className="px-4 py-2 text-xs font-bold text-purple-400 hover:text-purple-300 hover:bg-purple-900/20 rounded-lg transition-all border border-transparent hover:border-purple-900/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Quick performance test"
+            >
+                {isTesting ? "Testing..." : "🧪 Test"}
+            </button>
 
             {/* Reset Button */}
             <button
@@ -189,6 +217,54 @@ export default function AdminDashboard() {
               : 'bg-blue-950/30 border-blue-900/50 text-blue-300'
           } animate-in fade-in slide-in-from-top-2 duration-300`}>
             {triggerMessage}
+          </div>
+        )}
+
+        {/* Test Results */}
+        {testResult && (
+          <div className="bg-gray-900 border border-purple-900/50 rounded-xl p-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-purple-400">⚡ Performance Test Results</h3>
+              <button onClick={() => setTestResult(null)} className="text-gray-500 hover:text-white">✕</button>
+            </div>
+            
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div className="bg-gray-950 rounded-lg p-3">
+                <div className="text-xs text-gray-500 mb-1">Config</div>
+                <div className="text-sm font-mono text-white">{testResult.test_config}</div>
+              </div>
+              <div className="bg-gray-950 rounded-lg p-3">
+                <div className="text-xs text-gray-500 mb-1">Avg Lag Fetch</div>
+                <div className="text-sm font-mono text-yellow-400">{testResult.avg_lag_fetch_time}</div>
+              </div>
+              <div className="bg-gray-950 rounded-lg p-3">
+                <div className="text-xs text-gray-500 mb-1">Bottleneck</div>
+                <div className="text-sm font-bold text-red-400">{testResult.bottleneck}</div>
+              </div>
+              <div className="bg-gray-950 rounded-lg p-3">
+                <div className="text-xs text-gray-500 mb-1">Est. Full Job</div>
+                <div className="text-sm font-mono text-green-400">{testResult.estimated_full_job_time}</div>
+              </div>
+            </div>
+
+            <div className="bg-gray-950 rounded-lg p-4">
+              <div className="text-xs text-gray-500 mb-2">Timing Breakdown</div>
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                {Object.entries(testResult.timing_seconds).map(([key, value]) => (
+                  <div key={key} className="flex justify-between">
+                    <span className="text-gray-400">{key}:</span>
+                    <span className="text-white">{value.toFixed(3)}s</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 bg-gray-950 rounded-lg p-4">
+              <div className="text-xs text-gray-500 mb-2">Sample Predictions</div>
+              <div className="text-xs font-mono text-green-400">
+                {testResult.sample_predictions.join(', ')}
+              </div>
+            </div>
           </div>
         )}
 
