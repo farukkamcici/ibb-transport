@@ -82,7 +82,7 @@ def fetch_nowcast_weather_data_sync(lat: float, lon: float) -> dict:
     params = {
         "latitude": lat,
         "longitude": lon,
-        "hourly": "temperature_2m,weather_code",
+        "hourly": "temperature_2m,weather_code,precipitation",
         "forecast_hours": 7,  # Current + next 6 hours
         "timezone": "Europe/Istanbul"
     }
@@ -107,6 +107,7 @@ def fetch_nowcast_weather_data_sync(lat: float, lon: float) -> dict:
         fallback_data[f"hour_{i}"] = {
             "temperature_2m": 15.0 + i * 0.5,  # Slightly varying temperatures
             "weather_code": None,
+            "precipitation": 0.0,
             "time": f"{(datetime.now().hour + i) % 24:02d}:00"
         }
     return fallback_data
@@ -118,19 +119,17 @@ def _process_nowcast_response(data: dict) -> dict:
 
     hourly_data = data['hourly']
     forecasts = {}
-    current_time = datetime.now()
     
-    for i, time_str in enumerate(hourly_data['time']):
+    # Take first 7 hours (current + next 6)
+    for i, time_str in enumerate(hourly_data['time'][:7]):
         forecast_time = datetime.fromisoformat(time_str)
-        hours_from_now = int((forecast_time - current_time).total_seconds() / 3600)
         
-        # Only include current hour and next 6 hours
-        if 0 <= hours_from_now <= 6:
-            forecasts[f"hour_{hours_from_now}"] = {
-                "temperature_2m": hourly_data['temperature_2m'][i],
-                "weather_code": hourly_data.get('weather_code', [None])[i] if hourly_data.get('weather_code') else None,
-                "time": forecast_time.strftime("%H:%M")
-            }
+        forecasts[f"hour_{i}"] = {
+            "temperature_2m": hourly_data['temperature_2m'][i],
+            "weather_code": hourly_data.get('weather_code', [None])[i] if hourly_data.get('weather_code') else None,
+            "precipitation": hourly_data.get('precipitation', [0.0])[i] if hourly_data.get('precipitation') else 0.0,
+            "time": forecast_time.strftime("%H:%M")
+        }
     
     return forecasts
 

@@ -123,23 +123,29 @@ const TemperatureBadge = () => {
         };
     }, []);
 
-    // Parse API response - format is "T+0", "T+60", etc. (in minutes)
-    const currentWeather = weatherData?.['T+0'];
+    // Parse API response - format is "hour_0" (current), "hour_1", "hour_2", etc.
+    // hour_0 = current hour, hour_1 to hour_6 = next 6 hours forecast
+    const currentWeather = weatherData?.hour_0;
     const currentTemp = currentWeather?.temperature_2m;
 
-    // Get current time and calculate actual hours for future forecasts
-    const now = new Date();
-    const currentHour = now.getHours();
-    
-    // Get future hours data (60, 120, 180, 240, 300, 360 minutes = 1-6 hours ahead)
-    const futureHours = [60, 120, 180, 240, 300, 360].map(minutes => {
-        const hoursAhead = minutes / 60;
-        return {
-            key: `T+${minutes}`,
-            actualHour: (currentHour + hoursAhead) % 24,
-            data: weatherData?.[`T+${minutes}`]
-        };
-    }).filter(item => item.data);
+    // Get future hours forecast (hour_1 through hour_6)
+    const futureHours = [1, 2, 3, 4, 5, 6]
+        .map(i => {
+            const hourKey = `hour_${i}`;
+            const data = weatherData?.[hourKey];
+            if (!data) return null;
+            
+            // Extract hour from time string (format: "18:00")
+            const timeStr = data.time || '';
+            const hour = timeStr ? parseInt(timeStr.split(':')[0]) : 0;
+            
+            return {
+                key: hourKey,
+                actualHour: hour,
+                data: data
+            };
+        })
+        .filter(item => item !== null);
 
     return (
         <div className="absolute top-3 sm:top-4 left-1/2 -translate-x-1/2 z-[1002] w-full max-w-3xl px-3 sm:px-4 pointer-events-none">

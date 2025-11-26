@@ -9,6 +9,29 @@ _Last updated: 2025-11-25_
 - **Details:** Key updates introduced in the commit with brief explanations.
 - **Notes:** Additional context or decisions relevant to the logged work.
 
+## Entry · 2025-11-25 18:40 (+03)
+
+### Commit
+- **Hash:** `3125a54519413d79628c2fe8201710191c22a6a2`
+- **Message:** `add CORS support for ibb-transport.vercel.app`
+
+### Summary
+- Enabled production frontend deployment by adding CORS origin for the Vercel-hosted application and renamed README file for user documentation.
+
+### Details
+- **Backend CORS Configuration:**
+  - Updated `src/api/main.py` to include `https://ibb-transport.vercel.app` in allowed CORS origins
+  - Maintains existing localhost:3000 origin for local development
+  - Enables the deployed frontend to make authenticated API requests to the backend
+- **Documentation Restructure:**
+  - Renamed `README_USER.md` to `README.md` to serve as the primary user-facing documentation
+  - User-focused README now covers platform features, crowd score interpretation, FAQ, and getting started guide
+
+### Notes
+- CORS configuration now supports both local development and production deployment environments
+- The frontend is deployed on Vercel at ibb-transport.vercel.app
+- Backend API credentials and methods remain unrestricted for all allowed origins
+
 ## Entry · 2025-11-25 16:24 (+03)
 
 ### Commit

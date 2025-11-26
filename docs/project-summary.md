@@ -7,6 +7,7 @@ ta pipelines, feature engineering, modeling, UI) and cite the related scripts or
 - 2025-11-25: Developed the core backend API using FastAPI, with routers for `admin`, `forecast`, and `lines`.
 - 2025-11-25: Integrated the frontend admin dashboard with the backend API.
 - 2025-11-25: Configured the production deployment environment using Docker and Docker Compose.
+- 2025-11-25: Added CORS support for the production frontend URL (ibb-transport.vercel.app) to enable cross-origin API requests from the deployed application.
 
 ## Data Preparation & Ingestion
 - 2025-10-29: Implemented `src/data_prep/load_raw.py` to consolidate hourly passenger totals per line into parquet via Polars streaming, establishing the baseline `transport_hourly` dataset required for mod
