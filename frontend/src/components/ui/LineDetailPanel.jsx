@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import useAppStore from '@/store/useAppStore';
-import { X, TrendingUp, Loader, ServerCrash, Users, Info, MapPin, Route } from 'lucide-react';
+import { X, TrendingUp, Loader, ServerCrash, Users, Info, MapPin, Route, Star } from 'lucide-react';
 import TimeSlider from './TimeSlider';
 import CrowdChart from './CrowdChart';
 import { cn } from '@/lib/utils';
@@ -21,7 +21,7 @@ const crowdLevelConfig = {
 export default function LineDetailPanel() {
   const t = useTranslations('lineDetail');
   const getTransportLabel = useGetTransportLabel();
-  const { selectedLine, isPanelOpen, closePanel, selectedHour } = useAppStore();
+  const { selectedLine, isPanelOpen, closePanel, selectedHour, toggleFavorite, isFavorite } = useAppStore();
   const [forecastData, setForecastData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -61,6 +61,7 @@ export default function LineDetailPanel() {
   const status = currentHourData ? crowdLevelConfig[crowdLevel] : null;
   const metadata = selectedLine.metadata;
   const transportType = metadata ? getTransportType(metadata.transport_type_id) : null;
+  const isFav = isFavorite(selectedLine.id);
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[999] flex flex-col rounded-t-3xl bg-surface p-6 pb-20 shadow-2xl transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto">
@@ -84,9 +85,21 @@ export default function LineDetailPanel() {
             </div>
           )}
         </div>
-        <button onClick={closePanel} className="rounded-full bg-background p-2 text-gray-400 hover:bg-white/10 ml-3">
-          <X size={20} />
-        </button>
+        <div className="flex items-center gap-2 ml-3">
+          <button 
+            onClick={() => toggleFavorite(selectedLine.id)} 
+            className={cn(
+              "rounded-full bg-background p-2 hover:bg-white/10 transition-colors",
+              isFav ? "text-yellow-400" : "text-gray-400"
+            )}
+            aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+          >
+            <Star size={20} fill={isFav ? "currentColor" : "none"} />
+          </button>
+          <button onClick={closePanel} className="rounded-full bg-background p-2 text-gray-400 hover:bg-white/10">
+            <X size={20} />
+          </button>
+        </div>
       </div>
 
       <div className="mb-6 rounded-2xl bg-background p-4 border border-white/5">

@@ -41,9 +41,24 @@
     "timeTravel": "Zaman Seçici"
   },
   "forecast": {
-    "title": "Tahmin Sayfası",
+    "title": "Favorilerim",
+    "subtitle": "Favori hatlarınızın anlık durumunu görün",
     "selectLine": "Bir hat seçin",
-    "noData": "Veri bulunamadı"
+    "noData": "Veri bulunamadı",
+    "occupancy": "Doluluk",
+    "passengers": "Yolcu",
+    "crowdLevels": {
+      "Low": "Düşük",
+      "Medium": "Orta",
+      "High": "Yüksek",
+      "Very High": "Çok Yüksek",
+      "Unknown": "Bilinmiyor"
+    },
+    "emptyState": {
+      "title": "Henüz favori hat eklemediniz",
+      "description": "Harita üzerinden hatları arayın ve yıldız butonuna tıklayarak favorilerinize ekleyin.",
+      "button": "Hatlara Git"
+    }
   },
   "settings": {
     "title": "Ayarlar",

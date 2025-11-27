@@ -41,9 +41,24 @@
     "timeTravel": "Time Travel"
   },
   "forecast": {
-    "title": "Forecast Page",
+    "title": "My Favorites",
+    "subtitle": "View real-time status of your favorite lines",
     "selectLine": "Select a line",
-    "noData": "No data found"
+    "noData": "No data found",
+    "occupancy": "Occupancy",
+    "passengers": "Passengers",
+    "crowdLevels": {
+      "Low": "Low",
+      "Medium": "Medium",
+      "High": "High",
+      "Very High": "Very High",
+      "Unknown": "Unknown"
+    },
+    "emptyState": {
+      "title": "You haven't added any favorite lines yet",
+      "description": "Search for lines on the map and click the star button to add them to your favorites.",
+      "button": "Go to Lines"
+    }
   },
   "settings": {
     "title": "Settings",

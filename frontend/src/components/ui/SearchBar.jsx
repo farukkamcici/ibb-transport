@@ -46,10 +46,23 @@ export default function SearchBar() {
 
   const highlightMatch = (text, query) => {
     if (!query || !text) return text;
-    const regex = new RegExp(`(${query})`, 'gi');
-    const parts = text.split(regex);
-    return parts.map((part, i) => 
-      regex.test(part) ? <mark key={i} className="bg-primary/30 text-primary font-semibold">{part}</mark> : part
+    
+    const normalizedQuery = query.toLocaleLowerCase('tr-TR');
+    const normalizedText = text.toLocaleLowerCase('tr-TR');
+    
+    const index = normalizedText.indexOf(normalizedQuery);
+    if (index === -1) return text;
+    
+    const before = text.substring(0, index);
+    const match = text.substring(index, index + query.length);
+    const after = text.substring(index + query.length);
+    
+    return (
+      <>
+        {before}
+        <mark className="bg-primary/30 text-primary font-semibold">{match}</mark>
+        {after}
+      </>
     );
   };
 
