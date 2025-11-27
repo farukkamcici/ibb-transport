@@ -72,3 +72,15 @@ panel with data visualization, and a bottom navigation system. The frontend is p
 - 2025-11-24: Implemented a "Current Location" feature, adding a floating button to the map that allows users to center the view on their current position, marked by a custom icon.
 - 2025-11-24: Replaced default browser alerts with a custom, modern alert component that aligns with the project's design system, providing a more integrated and user-friendly notification experience.
 - 2025-11-25: Redesigned weather nowcast badge component with unified header layout, smooth animations, and Istanbul-specific weather integration. Refactored to align perfectly with SearchBar in a single row with consistent height (h-12), implemented dropdown-style expansion with 400ms transitions and staggered item animations, and simplified architecture by removing 100+ lines of redundant code (weather icons, user location dependency, location throttling). Component now shows temperature and "İstanbul" label with hourly forecast details on expansion.
+- 2025-11-26: Enhanced weather service to include precipitation data in both API responses and fallback logic. Updated Nowcast component UI to display precipitation alongside temperature in hourly forecasts, providing more comprehensive weather context.
+
+## Backend Performance & Operations
+- 2025-11-26: Implemented batch processing for model predictions, replacing row-by-row inference with single batch calls to significantly reduce execution time for daily forecast jobs (500+ lines × 24 hours).
+- 2025-11-26: Optimized Feature Store with batch lag loading and precomputed lookup caching in `services/store.py`, reducing database calls from O(n) per prediction to O(1) batch queries with in-memory cache for faster retrieval.
+- 2025-11-26: Hardened batch forecast job execution with dedicated database session management for background tasks, comprehensive error handling with traceback logging, and error message truncation to prevent database overflow.
+- 2025-11-26: Added admin recovery endpoint `POST /admin/jobs/reset-stuck` to reset jobs stuck in RUNNING status, enabling manual recovery from process crashes or deployment interruptions.
+- 2025-11-26: Enhanced batch forecast service with detailed logging for weather fetching, calendar loading, and prediction progress. Added critical error checks for missing calendar features and graceful handling of missing weather data.
+
+## Admin Tools & Testing
+- 2025-11-26: Created lightweight performance testing endpoint `POST /admin/forecast/test` that accepts configurable `num_lines` and `num_hours` parameters, samples random lines, and returns timing breakdown (lag loading, batch processing, result handling) with per-prediction averages and estimated full-job duration.
+- 2025-11-26: Enhanced frontend admin dashboard with performance testing UI featuring a "Test" button that displays test configurations, timing metrics, bottleneck detection, and sample predictions in an expandable card interface for quick model validation and diagnosis.

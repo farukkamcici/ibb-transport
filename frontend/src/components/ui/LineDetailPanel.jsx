@@ -25,18 +25,27 @@ export default function LineDetailPanel() {
     if (isPanelOpen && selectedLine) {
       setLoading(true);
       setError(null);
+      setForecastData([]);
       
-      getForecast(selectedLine.id, new Date())
+      const targetDate = new Date();
+      
+      getForecast(selectedLine.id, targetDate)
         .then(data => {
           setForecastData(data);
+          setError(null);
         })
         .catch(err => {
-          setError("Could not fetch forecast. Please try again later.");
-          console.error(err);
+          const errorMessage = err.message || "Could not fetch forecast. Please try again later.";
+          setError(errorMessage);
+          setForecastData([]);
+          console.error('Forecast fetch error:', err);
         })
         .finally(() => {
           setLoading(false);
         });
+    } else {
+      setForecastData([]);
+      setError(null);
     }
   }, [isPanelOpen, selectedLine]);
 

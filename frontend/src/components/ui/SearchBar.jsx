@@ -27,14 +27,13 @@ export default function SearchBar() {
   }, [debouncedQuery]);
 
   const handleSelectLine = (lineName) => {
-    // The dummy data had an object, but the new API just returns names.
-    // We'll create a mock line object for now.
-    // TODO: The search endpoint should ideally return more info (id, name, type).
-    const lineObject = { id: lineName, name: lineName };
+    const lineObject = {
+      id: lineName,
+      name: lineName,
+    };
     setSelectedLine(lineObject);
     setResults([]);
     setQuery('');
-    router.push('/forecast');
   };
 
   return (

@@ -3,74 +3,100 @@
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useMemo } from 'react';
 
+const getCrowdColor = (occupancy_pct) => {
+  if (occupancy_pct >= 70) return '#ef4444';
+  if (occupancy_pct >= 50) return '#f97316';
+  if (occupancy_pct >= 30) return '#eab308';
+  return '#10b981';
+};
+
+const CustomTooltip = ({ active, payload }) => {
+  if (!active || !payload || !payload.length) return null;
+
+  const data = payload[0].payload;
+  return (
+    <div className="rounded-lg border border-white/10 bg-surface/95 p-3 shadow-xl backdrop-blur-sm">
+      <p className="text-xs font-semibold text-gray-400">Hour: {data.hour}:00</p>
+      <p className="text-sm font-bold text-text mt-1">Occupancy: {data.occupancy_pct}%</p>
+      <p className="text-xs text-secondary mt-1">Level: {data.crowd_level}</p>
+      <p className="text-xs text-gray-400 mt-1">
+        ~{Math.round(data.predicted_value).toLocaleString()} passengers
+      </p>
+    </div>
+  );
+};
+
 export default function CrowdChart({ data }) {
-  // Memoize formatted data to prevent re-calculation on re-renders
   const formattedData = useMemo(() => {
+    if (!data || !Array.isArray(data) || data.length === 0) {
+      return [];
+    }
+
     return data.map(item => ({
-      ...item,
-      // Display only the hour number on the X-axis for clarity
-      hourLabel: item.hour.split(':')[0],
+      hour: item.hour,
+      occupancy_pct: item.occupancy_pct,
+      crowd_level: item.crowd_level,
+      predicted_value: item.predicted_value,
+      color: getCrowdColor(item.occupancy_pct),
     }));
   }, [data]);
 
+  if (!formattedData.length) {
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-gray-400">
+        No forecast data available
+      </div>
+    );
+  }
+
   return (
-    <div className="h-60 w-full">
+    <div className="h-full w-full">
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart
           data={formattedData}
           margin={{
             top: 10,
-            right: 30,
-            left: 0,
+            right: 10,
+            left: -20,
             bottom: 0,
           }}
         >
           <defs>
-            {/* Gradient for the chart area */}
-            <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
-              <stop offset="95%" stopColor="#ef4444" stopOpacity={0.3} />
+            <linearGradient id="colorOccupancy" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor="#10b981" stopOpacity={0.6} />
+              <stop offset="50%" stopColor="#eab308" stopOpacity={0.4} />
+              <stop offset="95%" stopColor="#ef4444" stopOpacity={0.2} />
             </linearGradient>
           </defs>
           
-          {/* Grid for better readability */}
-          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
 
-          {/* X-axis representing the hour of the day */}
           <XAxis 
-            dataKey="hourLabel" 
-            tick={{ fontSize: 12, fill: '#6b7280' }}
-            axisLine={{ stroke: '#d1d5db' }}
-            tickLine={{ stroke: '#d1d5db' }}
-            interval="preserveStartEnd" // Ensures start and end labels are shown
+            dataKey="hour" 
+            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+            tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+            interval={2}
+            tickFormatter={(hour) => `${hour}h`}
           />
 
-          {/* Y-axis representing the crowd score */}
           <YAxis 
             domain={[0, 100]}
-            tick={{ fontSize: 12, fill: '#6b7280' }}
-            axisLine={{ stroke: '#d1d5db' }}
-            tickLine={{ stroke: '#d1d5db' }}
+            tick={{ fontSize: 11, fill: '#9ca3af' }}
+            axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+            tickLine={{ stroke: 'rgba(255,255,255,0.1)' }}
+            tickFormatter={(value) => `${value}%`}
           />
 
-          {/* Custom Tooltip for hover details */}
-          <Tooltip
-            contentStyle={{
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              borderColor: '#d1d5db',
-              borderRadius: '0.5rem',
-              fontSize: '0.875rem',
-            }}
-            labelFormatter={(label) => `Hour: ${label}:00`}
-          />
+          <Tooltip content={<CustomTooltip />} />
 
-          {/* The main area of the chart */}
           <Area 
             type="monotone" 
-            dataKey="score" 
-            stroke="#ef4444" 
-            fill="url(#colorScore)" 
+            dataKey="occupancy_pct" 
+            stroke="#3b82f6" 
+            fill="url(#colorOccupancy)" 
             strokeWidth={2}
+            animationDuration={800}
           />
         </AreaChart>
       </ResponsiveContainer>

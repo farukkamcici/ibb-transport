@@ -1,6 +1,6 @@
 # Project Logbook
 
-_Last updated: 2025-11-25_
+_Last updated: 2025-11-26_
 
 ## Log Schema
 - **Timestamp:** Commit date and hour (local timezone) recorded from repository history.
@@ -8,6 +8,194 @@ _Last updated: 2025-11-25_
 - **Summary:** One-line status of the project immediately after the commit.
 - **Details:** Key updates introduced in the commit with brief explanations.
 - **Notes:** Additional context or decisions relevant to the logged work.
+
+## Entry · 2025-11-26 19:21 (+03)
+
+### Commit
+- **Hash:** `4e95bf6f8deeec2d0672ccaf40ab2a413caf50fa`
+- **Message:** `refactor(batch_forecast): implement batch lag loading for improved performance and maintainability`
+
+### Summary
+- Optimized the Feature Store with batch lag loading and precomputed lookup caching, significantly reducing database calls and improving batch prediction performance.
+
+### Details
+- **Feature Store Optimization:**
+  - Implemented `_load_lags_batch()` method in `services/store.py` to fetch lag features for multiple lines/hours in a single database query
+  - Added precomputed lag lookup cache that builds an in-memory dictionary mapping (line_id, target_datetime) to lag features for O(1) retrieval
+  - Introduced seasonal lag batch loading with fallback to recent data if seasonal matches are insufficient
+  - Simplified fallback handling with default zero values for missing lag features to ensure robustness
+- **Performance Improvements:**
+  - Reduced redundant database calls during batch prediction by loading all required lags upfront
+  - Enhanced logging with timing metrics for lag loading operations to aid debugging and performance monitoring
+- **Admin Endpoint Updates:**
+  - Refined `/admin/forecast/test` endpoint to leverage new batch loading capabilities
+  - Improved timing breakdown to isolate lag loading performance from prediction time
+
+### Notes
+- Batch lag loading is critical for improving the daily forecast job performance, especially when processing 24 hours × 500+ lines
+- The precomputed cache approach trades memory for speed, suitable for the batch prediction use case
+- Default zero-filled lag features ensure predictions can complete even with incomplete historical data
+
+## Entry · 2025-11-26 19:06 (+03)
+
+### Commit
+- **Hash:** `7a8c4b879adcd3f06f345edc0c652d3187e456e6`
+- **Message:** `feat(admin): add quick performance test functionality with results display`
+
+### Summary
+- Enhanced the frontend admin dashboard with a performance testing interface for quick model evaluation and bottleneck diagnosis.
+
+### Details
+- **Admin UI Testing Tools:**
+  - Added "Test" button to admin page alongside existing "Run Forecast" button
+  - Displays test configuration modal showing number of lines and hours tested
+  - Presents timing metrics including total execution time, per-prediction average, and estimated full-job duration
+  - Shows bottleneck detection highlighting if lag loading, batch processing, or result handling is the slowest component
+  - Renders sample predictions table with line names, hours, and crowd scores for quick validation
+- **User Experience:**
+  - Test results appear in an expandable card with organized sections
+  - Success/error feedback with loading states during test execution
+  - Results remain visible until new test is run or page is refreshed
+
+### Notes
+- Testing tool complements the backend `/admin/forecast/test` endpoint added in previous commit
+- Helps diagnose performance issues before running full 24-hour batch jobs
+- Useful for validating model behavior after Feature Store or prediction pipeline changes
+
+## Entry · 2025-11-26 19:02 (+03)
+
+### Commit
+- **Hash:** `18093481a3aa8733695e30d6763b63a11c471890`
+- **Message:** `feat(admin): add `/admin/forecast/test` endpoint for quick forecast testing`
+
+### Summary
+- Created a lightweight admin endpoint for rapid forecast model testing with configurable parameters and detailed performance metrics.
+
+### Details
+- **New Admin Endpoint:**
+  - Added `POST /admin/forecast/test` accepting `num_lines` (default: 5) and `num_hours` (default: 3) parameters
+  - Samples random transport lines and generates predictions for the next N hours
+  - Returns timing breakdown for lag loading, batch processing, and result handling
+  - Provides per-prediction average time and estimated full-job execution duration
+  - Includes sample predictions with line metadata and crowd scores for validation
+- **Performance Analysis:**
+  - Identifies bottlenecks by reporting time spent in each pipeline stage
+  - Extrapolates test results to estimate full 24-hour × 500+ line job duration
+  - Enables rapid iteration on Feature Store and prediction optimizations without running full batch jobs
+
+### Notes
+- Test endpoint uses the same batch forecast service components as production jobs
+- Useful for validating changes to lag loading strategies, model inference, or database queries
+- Estimated full-job time helps assess whether optimizations are ready for production deployment
+
+## Entry · 2025-11-26 18:58 (+03)
+
+### Commit
+- **Hash:** `2a558a6915cf5f2d2ecf6f0b74ef76de794cfe20`
+- **Message:** `refactor(batch_forecast): optimize batch prediction process and improve performance`
+
+### Summary
+- Introduced batch processing for model predictions, replacing row-by-row inference to significantly reduce execution time.
+
+### Details
+- **Batch Prediction Implementation:**
+  - Refactored prediction loop in `services/batch_forecast.py` to accumulate input arrays and predict in batches
+  - Batch size determined dynamically based on the number of lines × hours being processed
+  - Reduced model invocation overhead by calling `model.predict()` once per batch instead of per row
+- **Result Processing:**
+  - Simplified result handling with metadata tracking (line_id, forecast_datetime) aligned with prediction arrays
+  - Streamlined database insertion by preparing all forecast records before bulk insert
+- **Logging Enhancements:**
+  - Added detailed logs for input building, batch processing start/end, and result handling
+  - Timing metrics help identify performance bottlenecks in the prediction pipeline
+
+### Notes
+- Batch prediction is a critical optimization for production deployment where 12,000+ predictions (500 lines × 24 hours) are generated daily
+- Model inference time reduced from O(n) individual calls to O(1) batch call with n samples
+- Maintains backward compatibility with existing forecast database schema and API responses
+
+## Entry · 2025-11-26 18:50 (+03)
+
+### Commit
+- **Hash:** `0518cbfa3a73efa98354b04f57d3476b345c60ab`
+- **Message:** `refactor(batch_forecast): improve logging, error handling, and prediction loop processing`
+
+### Summary
+- Enhanced batch forecast service with comprehensive logging, critical error detection, and improved handling of missing data.
+
+### Details
+- **Logging Improvements:**
+  - Added detailed logging for weather data fetching with timestamp information
+  - Introduced progress logging during prediction loop showing processed line count
+  - Enhanced calendar feature loading logs with date range coverage
+- **Error Handling:**
+  - Added critical error checks for missing calendar features with raised exceptions
+  - Implemented graceful handling of missing hourly weather data without excessive logging
+  - Improved error context to help diagnose data availability issues
+- **Code Quality:**
+  - Simplified conditional logic for weather fallback scenarios
+  - Ensured calendar features are validated before entering prediction loop
+
+### Notes
+- Critical error handling prevents silent failures when calendar dimension data is incomplete
+- Reduced log noise for expected missing data scenarios (e.g., future weather forecasts)
+- Logging enhancements aid in production debugging and monitoring
+
+## Entry · 2025-11-26 18:36 (+03)
+
+### Commit
+- **Hash:** `c1566a21c864cab7cf142fbbfd2759275c11b5b1`
+- **Message:** `refactor(forecast): improve job execution handling; add session management and stuck job reset`
+
+### Summary
+- Hardened batch forecast job execution with dedicated database session management, enhanced error handling, and an admin endpoint to recover from stuck jobs.
+
+### Details
+- **Session Management:**
+  - Introduced dedicated `SessionLocal()` session for background forecast tasks to prevent lifecycle conflicts with request-scoped sessions
+  - Ensures database connections are properly managed and closed in long-running batch jobs
+- **Error Handling Enhancements:**
+  - Added comprehensive traceback logging for job failures with full exception details
+  - Implemented error message truncation (500 chars) to prevent database field overflow
+  - Improved job status updates to accurately reflect COMPLETED, FAILED states
+- **Admin Recovery Tools:**
+  - Added `POST /admin/jobs/reset-stuck` endpoint to reset jobs stuck in RUNNING status
+  - Allows manual recovery from jobs that failed due to process crashes or deployment interruptions
+  - Returns count of reset jobs for audit trail
+- **Logging Improvements:**
+  - Enhanced logging throughout job lifecycle (start, progress, completion, failure)
+  - Added forecast count feedback in job results
+
+### Notes
+- Dedicated session management resolves issues with SQLAlchemy session lifecycle in FastAPI background tasks
+- Stuck job reset endpoint is critical for production operations where jobs may be interrupted by deployments
+- Error message truncation prevents database constraint violations while preserving debug information in logs
+
+## Entry · 2025-11-26 18:13 (+03)
+
+### Commit
+- **Hash:** `382084ae185fceb51b6c81db41548cf65058275c`
+- **Message:** `refactor(weather): enhance hourly forecast logic and UI; add precipitation data`
+
+### Summary
+- Extended weather service and Nowcast component to include precipitation data and improved hourly forecast display clarity.
+
+### Details
+- **Backend Weather Service:**
+  - Updated `services/weather.py` to fetch and include precipitation data in API responses
+  - Enhanced fallback logic to provide precipitation values when live API calls fail
+  - Maintained compatibility with existing temperature and weather code responses
+- **Frontend Nowcast Component:**
+  - Refined hourly forecast parsing logic in `Nowcast.jsx` for clearer data handling
+  - Added precipitation display to the hourly forecast dropdown
+  - Improved component robustness with better handling of missing or malformed weather data
+- **Documentation:**
+  - Updated project log and summary to reflect weather feature enhancements
+
+### Notes
+- Precipitation data complements temperature for more comprehensive weather context
+- Hourly forecast UI now displays precipitation probability/amount alongside temperature
+- Fallback mechanism ensures weather component remains functional even when external API is unavailable
 
 ## Entry · 2025-11-25 18:40 (+03)
 
