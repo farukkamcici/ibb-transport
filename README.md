@@ -2,11 +2,13 @@
 
 **A data-driven forecasting tool for planning comfortable public transport trips in Istanbul**
 
+🌐 **Available in Turkish and English** | Türkçe ve İngilizce dillerinde kullanılabilir
+
 ---
 
 ## What is this Platform?
 
-The Istanbul Public Transit Crowding Prediction Platform is a **web-based prediction tool** that helps you avoid peak hours and plan more comfortable journeys on Istanbul's public transportation network. 
+The Istanbul Public Transit Crowding Prediction Platform is a **multilingual, web-based prediction tool** that helps you avoid peak hours and plan more comfortable journeys on Istanbul's public transportation network. 
 
 **Important:** This platform uses **AI models trained on historical passenger data and weather forecasts** to predict crowding levels. It does **not** rely on real-time sensors or live passenger counting. All information shown represents **forecasted predictions** based on patterns learned from past data, weather conditions, and calendar factors.
 
@@ -34,6 +36,12 @@ The Istanbul Public Transit Crowding Prediction Platform is a **web-based predic
 - Access the platform on any device - mobile, tablet, or desktop
 - Add to your phone's home screen for quick access
 - Works offline for basic functionality
+
+### 🌐 **Multi-Language Support**
+- Full interface available in Turkish (Türkçe) and English
+- Easy language switching from Settings page
+- All forecasts, labels, and notifications localized
+- Automatic language detection based on browser preferences
 
 ---
 
@@ -126,11 +134,12 @@ Yes! Enable notifications to receive alerts about:
 ## Getting Started
 
 1. **Visit the Platform:** Access through your web browser on any device
-2. **Explore the Map:** Browse Istanbul's transport network and crowding patterns
-3. **Select Your Line:** Click on any metro, bus, or ferry route
-4. **Choose Your Time:** Use the time slider to see predictions for different hours
-5. **Save Favorites:** Bookmark your regular routes for quick access
-6. **Plan Ahead:** Check predictions before starting your journey
+2. **Choose Your Language:** Select Turkish or English from Settings (⚙️)
+3. **Explore the Map:** Browse Istanbul's transport network and crowding patterns
+4. **Select Your Line:** Click on any metro, bus, or ferry route
+5. **Choose Your Time:** Use the time slider to see predictions for different hours
+6. **Save Favorites:** Bookmark your regular routes for quick access
+7. **Plan Ahead:** Check predictions before starting your journey
 
 ---
 

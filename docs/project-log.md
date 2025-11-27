@@ -9,6 +9,64 @@ _Last updated: 2025-11-27_
 - **Details:** Key updates introduced in the commit with brief explanations.
 - **Notes:** Additional context or decisions relevant to the logged work.
 
+## Entry · 2025-11-27 16:09 (+03)
+
+### Commit
+- **Hash:** `83b0e6cb638844d1815abd79137aecfb20e2ab26`
+- **Message:** `feat(i18n): implement localization framework and migrate app structure for multi-language support`
+
+### Summary
+- Implemented comprehensive internationalization (i18n) with Turkish and English language support, restructuring the entire frontend application to support locale-based routing and dynamic translation.
+
+### Details
+- **i18n Infrastructure:**
+  - Created `src/i18n/config.js` defining supported locales (tr, en) with Turkish as default
+  - Implemented `src/i18n/request.js` using next-intl's `getRequestConfig` for server-side message loading
+  - Added `src/i18n/routing.js` with locale-aware navigation helpers (Link, redirect, useRouter, usePathname)
+  - Created middleware (`src/middleware.js`) for automatic locale detection and URL prefix routing
+  - Configured next.config.js with `withNextIntl` plugin wrapper
+- **Translation Files:**
+  - Created `messages/tr.json` with complete Turkish translations for all UI components
+  - Created `messages/en.json` with English translations for metadata, navigation, search, line details, weather, transport types, forecast, settings, admin, errors, and common terms
+  - Structured translations hierarchically by component/feature domain (e.g., `searchBar`, `lineDetail`, `weather`, `transportTypes`)
+- **App Structure Migration:**
+  - Migrated entire `src/app/` directory to `src/app/[locale]/` for dynamic locale routing
+  - Moved all pages (page.js, forecast/page.js, admin/page.jsx, settings/page.js) under `[locale]` folder
+  - Created new root layout (`src/app/[locale]/layout.js`) with `NextIntlClientProvider` wrapper
+  - Removed old root layout.js and consolidated locale-specific metadata generation
+  - Implemented `generateStaticParams()` to pre-render both tr and en routes
+- **Component Localization:**
+  - **BottomNav.jsx:** Replaced hardcoded labels with `useTranslations('navigation')` hook
+  - **SearchBar.jsx:** Localized placeholder, loading message, and no results text using `useTranslations('searchBar')`
+  - **LineDetailPanel.jsx:** Translated crowd level labels, occupancy text, predicted passenger count, and forecast header with dynamic hour interpolation
+  - **TimeSlider.jsx:** Localized "Time Travel" label using `useTranslations('timeSlider')`
+  - **Nowcast.jsx:** Translated weather UI text ("Next Hours", "Auto-closes", "Istanbul") using `useTranslations('weather')` and `useTranslations('common')`
+  - **Settings page:** Localized page title, language selector label, theme label with integrated LanguageSwitcher component
+  - **Forecast page:** Translated page title and added no data message
+  - **Admin page:** Localized dashboard title and subtitle
+- **Language Switcher Component:**
+  - Created `src/components/ui/LanguageSwitcher.jsx` with TR/EN toggle buttons
+  - Implemented smooth transitions using `useTransition` hook
+  - Integrated locale switching with next-intl's router (`useRouter` from `@/i18n/routing`)
+  - Added to Settings page with Globe icon for discoverability
+- **Transport Type Localization:**
+  - Refactored `src/lib/transportTypes.js` to use `labelKey` instead of hardcoded `label` values
+  - Changed transport type labels to keys: `bus`, `metro`, `ferry`, `unknown`
+  - Created custom hook `src/hooks/useGetTransportLabel.js` for runtime translation lookup
+  - Updated SearchBar and LineDetailPanel to use `getTransportLabel(transportType.labelKey)` for dynamic labels
+
+### Notes
+- URL structure now includes locale prefix: `/tr/`, `/en/`, `/tr/forecast`, `/en/settings`, etc.
+- Middleware automatically redirects root path `/` to `/tr` (default locale)
+- All static text across 10+ components successfully localized without breaking functionality
+- Build verification successful with all routes generating correctly for both locales
+- Transport type badges (Bus/Otobüs, Metro, Ferry/Vapur) now dynamically translate based on selected language
+- Weather widget shows "Istanbul"/"İstanbul" based on locale
+- Custom hook pattern (`useGetTransportLabel`) provides reusable translation mechanism for computed values
+- next-intl v4.5.5 integrated with Next.js 16.0.3 and App Router architecture
+- Locale persistence handled via cookies through next-intl middleware
+- Future enhancement opportunity: Add more languages by creating new message files (e.g., `messages/de.json` for German)
+
 ## Entry · 2025-11-27 15:05 (+03)
 
 ### Commit

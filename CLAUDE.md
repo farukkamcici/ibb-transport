@@ -16,10 +16,11 @@ This is the **Istanbul Transport Crowding Prediction Platform** - an ML-powered 
 
 ### Frontend (Next.js)
 - **Install dependencies**: `cd frontend && npm install`
-- **Development server**: `cd frontend && npm run dev`
+- **Development server**: `cd frontend && npm run dev` (runs on port 3000)
 - **Build**: `cd frontend && npm run build`
 - **Start production**: `cd frontend && npm start`
 - **Lint**: `cd frontend && npm run lint`
+- **Note**: Frontend uses App Router with `[locale]` for i18n (Turkish default, English supported)
 
 ### ML Pipeline
 - **Load raw data**: `python src/data_prep/load_raw.py`
@@ -49,13 +50,17 @@ This is the **Istanbul Transport Crowding Prediction Platform** - an ML-powered 
 - **Database**: PostgreSQL with auto-initialization from `transport_meta.parquet`
 
 ### Frontend Architecture (Next.js)
-- **App Router**: `/app` directory with pages for forecast, admin, settings
+- **App Router**: `/app/[locale]` directory structure for i18n routing
+- **Internationalization**: next-intl v4.5.5 with Turkish (default) and English locales
+  - Translation files: `messages/tr.json`, `messages/en.json`
+  - Middleware handles locale detection and routing
+  - Custom hooks: `useTranslations`, `useGetTransportLabel`
 - **Components**:
-  - `map/` - Leaflet-based interactive maps
-  - `ui/` - Reusable UI components (charts, search, navigation)
+  - `map/` - Leaflet-based interactive maps with locate button
+  - `ui/` - Reusable UI components (charts, search, navigation, alerts, language switcher)
 - **State Management**: Zustand store (`store/useAppStore.js`)
-- **Styling**: Tailwind CSS with custom design system
-- **PWA**: Progressive Web App capabilities with offline support
+- **Styling**: Tailwind CSS with custom design system (see `DESIGN_SYSTEM.md`)
+- **PWA**: Progressive Web App capabilities with offline support (@ducanh2912/next-pwa)
 
 ### ML Pipeline Architecture
 - **Data Preparation**: Polars-based ETL in `src/data_prep/`
@@ -95,9 +100,11 @@ This is the **Istanbul Transport Crowding Prediction Platform** - an ML-powered 
 ## Important File Paths
 
 ### Configuration
-- **Model configs**: `src/model/config/v*.yaml` - LightGBM hyperparameters
+- **Model configs**: `src/model/config/v*.yaml` - LightGBM hyperparameters (v6 is current)
 - **Frontend config**: `frontend/next.config.js` - Next.js and PWA settings
-- **Docker**: `docker-compose.yml` - Full stack deployment
+- **i18n config**: `frontend/src/i18n/` - Internationalization routing and request handling
+- **Docker**: `docker-compose.yml` - PostgreSQL + FastAPI deployment
+- **Environment**: `.env` file required for database credentials and API settings
 
 ### Data Files
 - **Models**: `models/lgbm_transport_v*.txt` - Trained LightGBM models
@@ -128,4 +135,13 @@ This is the **Istanbul Transport Crowding Prediction Platform** - an ML-powered 
 - **Model loading errors**: Ensure model files exist in `models/` directory
 - **Database connection**: Verify PostgreSQL is running and `.env` file is configured
 - **Frontend build**: Check Node.js version compatibility (requires Node 16+)
-- **CORS issues**: Verify frontend URL is in allowed origins list
+- **CORS issues**: Verify frontend URL is in allowed origins list in `src/api/main.py`
+- **i18n routing**: All frontend routes must include locale prefix (`/tr/` or `/en/`)
+- **Search case sensitivity**: Currently search is case-sensitive; lowercase normalization needed
+
+### Known Pending Tasks
+Refer to `to-do.md` for active development items, including:
+- Admin authentication and cron jobs for batch predictions
+- User notification system design
+- Weekend/out-of-service hours handling in UI
+- Search algorithm case-insensitivity improvements

@@ -1,10 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from sqlalchemy import case, or_
+from sqlalchemy import case, or_, func
 from typing import List
 from ..db import get_db
 from ..models import TransportLine
 from pydantic import BaseModel
+import unicodedata
 
 router = APIRouter()
 
@@ -27,6 +28,21 @@ class SearchResult(BaseModel):
     class Config:
         from_attributes = True
 
+def turkish_lower(text: str) -> str:
+    """Convert text to lowercase using Turkish locale rules."""
+    replacements = {
+        'İ': 'i',
+        'I': 'ı',
+        'Ğ': 'ğ',
+        'Ü': 'ü',
+        'Ş': 'ş',
+        'Ö': 'ö',
+        'Ç': 'ç'
+    }
+    for upper, lower in replacements.items():
+        text = text.replace(upper, lower)
+    return text.lower()
+
 @router.get("/lines/search", response_model=List[SearchResult])
 def search_lines(query: str, db: Session = Depends(get_db)):
     """
@@ -35,24 +51,30 @@ def search_lines(query: str, db: Session = Depends(get_db)):
     2. Starts with query in line_name (score: 2)
     3. Contains query in line_name (score: 3)
     4. Matches in route description (score: 4)
+    
+    Supports Turkish character normalization (İ/i, I/ı, etc.)
     """
     if not query:
         return []
-        
-    search_query = f"%{query}%"
+    
+    # Normalize query for Turkish case-insensitive search
+    normalized_query = turkish_lower(query)
+    search_query = f"%{normalized_query}%"
     
     # Define a CASE statement to rank results with relevance scoring
     ordering_logic = case(
-        (TransportLine.line_name == query.upper(), 1),
-        (TransportLine.line_name.ilike(f"{query}%"), 2),
-        (TransportLine.line_name.ilike(search_query), 3),
+        (func.lower(TransportLine.line_name) == normalized_query, 1),
+        (func.lower(TransportLine.line_name).like(f"{normalized_query}%"), 2),
+        (func.lower(TransportLine.line_name).like(search_query), 3),
         else_=4
     )
 
-    # Search in both line_name and line (route description)
+    # Search in both line_name and line (route description) using LOWER for case-insensitive comparison
     lines = db.query(TransportLine, ordering_logic.label('relevance_score')).filter(
-        (TransportLine.line_name.ilike(search_query)) | 
-        (TransportLine.line.ilike(search_query))
+        or_(
+            func.lower(TransportLine.line_name).like(search_query),
+            func.lower(TransportLine.line).like(search_query)
+        )
     ).order_by(
         ordering_logic,
         TransportLine.line_name
