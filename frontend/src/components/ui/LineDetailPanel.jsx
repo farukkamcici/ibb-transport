@@ -64,7 +64,15 @@ export default function LineDetailPanel() {
   const isFav = isFavorite(selectedLine.id);
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[999] flex flex-col rounded-t-3xl bg-surface p-6 pb-20 shadow-2xl transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto">
+    <>
+      {/* Backdrop with blur */}
+      <div 
+        className="fixed inset-0 z-[998] bg-black/60 backdrop-blur-sm transition-opacity duration-300"
+        onClick={closePanel}
+      />
+      
+      {/* Panel */}
+      <div className="fixed bottom-0 left-0 right-0 z-[999] flex flex-col rounded-t-3xl bg-surface p-6 pb-20 shadow-2xl transition-transform duration-300 ease-out max-h-[85vh] overflow-y-auto">
       
       <div className="mb-6 flex items-start justify-between">
         <div className="flex-1">
@@ -154,5 +162,6 @@ export default function LineDetailPanel() {
         {loading ? <div className="h-full flex items-center justify-center"><Loader className="animate-spin text-primary" /></div> : <CrowdChart data={forecastData} />}
       </div>
     </div>
+    </>
   );
 }

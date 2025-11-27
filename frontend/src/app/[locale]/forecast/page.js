@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { useRouter } from 'next/navigation';
 import BottomNav from '@/components/ui/BottomNav';
+import LineDetailPanel from '@/components/ui/LineDetailPanel';
 import useAppStore from '@/store/useAppStore';
 import { Star, TrendingUp, MapPin, Loader } from 'lucide-react';
 import { getLineMetadata, getForecast } from '@/lib/api';
@@ -160,6 +161,7 @@ export default function ForecastPage() {
       </div>
 
       <BottomNav />
+      <LineDetailPanel />
     </main>
   );
 }

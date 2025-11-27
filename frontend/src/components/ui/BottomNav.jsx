@@ -1,9 +1,11 @@
 'use client';
+import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
 import { usePathname } from 'next/navigation';
 import { Bus, Calendar, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import useAppStore from '@/store/useAppStore';
 
 function NavItem({ href, icon: Icon, label }) {
   const pathname = usePathname();
@@ -23,6 +25,12 @@ function NavItem({ href, icon: Icon, label }) {
 
 export default function BottomNav() {
   const t = useTranslations('navigation');
+  const pathname = usePathname();
+  const { closePanel } = useAppStore();
+  
+  useEffect(() => {
+    closePanel();
+  }, [pathname, closePanel]);
   
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[1000] border-t border-white/10 bg-surface pb-safe shadow-lg">

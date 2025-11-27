@@ -35,7 +35,6 @@ const useAppStore = create(
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         favorites: state.favorites,
-        selectedHour: state.selectedHour,
       }),
     }
   )

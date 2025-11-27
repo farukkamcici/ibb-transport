@@ -2,6 +2,50 @@
 
 _Last updated: 2025-11-27_
 
+## Entry · 2025-11-27 16:39 (+03)
+
+### Commit
+- **Hash:** `8ebd3f88c71787fa1e55ac76fdd276bde73ddc73`
+- **Message:** `feat(ui): add favorite lines feature with real-time status and improved search highlighting`
+
+### Summary
+- Implemented favorites system with localStorage persistence and redesigned Forecast page as a personalized dashboard showing real-time crowd levels for bookmarked lines.
+
+### Details
+- **State Management & Persistence:**
+  - Enhanced `useAppStore.js` with Zustand persist middleware using `createJSONStorage(() => localStorage)`
+  - Added `favorites` array state with `toggleFavorite(lineId)` and `isFavorite(lineId)` actions
+  - Configured partialize strategy to persist only `favorites` and `selectedHour` in localStorage under key `ibb-transport-storage`
+- **LineDetailPanel Enhancements:**
+  - Added star button to panel header for marking/unmarking lines as favorites
+  - Implemented filled yellow star (Lucide-react Star with fill) when line is favorited, outlined gray when not
+  - Added backdrop blur overlay (`bg-black/60 backdrop-blur-sm`) behind panel for better visual focus
+  - Backdrop click closes panel for improved UX
+- **Forecast Page Redesign:**
+  - Transformed from placeholder to favorites dashboard displaying saved lines with real-time status
+  - Created `FavoriteLineCard` component that fetches line metadata and current hour forecast data
+  - Each card shows line code badge, transport type, current crowd level (Low/Medium/High/Very High), occupancy percentage, and predicted passenger count
+  - Implemented empty state with star icon, descriptive text, and "Go to Lines" button when no favorites exist
+  - Clicking favorite card opens `LineDetailPanel` with full 24h forecast
+  - Added `LineDetailPanel` component to forecast page to support line detail viewing
+- **Search Improvements:**
+  - Enhanced `SearchBar.jsx` highlight function with Turkish locale-sensitive matching using `toLocaleLowerCase('tr-TR')`
+  - Fixed highlight rendering to properly match and emphasize Turkish characters (İ/i, I/ı) in search results
+  - Backend search normalization already handles Turkish character pairs correctly via `turkish_lower()` function
+- **Navigation UX:**
+  - Added automatic panel closure on pathname change in `BottomNav.jsx` using `useEffect` hook
+  - Prevents panel state confusion when switching between Lines and Forecast tabs
+- **Localization:**
+  - Extended `messages/tr.json` and `messages/en.json` with favorites-specific translations
+  - Added `forecast.subtitle`, `forecast.occupancy`, `forecast.passengers`, `forecast.crowdLevels`, and `forecast.emptyState` keys
+  - Updated forecast page title to "Favorilerim" (TR) / "My Favorites" (EN)
+
+### Notes
+- Favorites system requires no authentication; all data stored client-side in browser localStorage
+- Panel backdrop z-index set to 998, panel to 999, ensuring proper layering above bottom nav (1000)
+- Empty state encourages user discovery by redirecting to map via router.push('/')
+- Turkish search highlighting now matches backend normalization logic for consistent user experience
+
 ## Log Schema
 - **Timestamp:** Commit date and hour (local timezone) recorded from repository history.
 - **Commit:** Hash and message identifying the change captured in the log.
