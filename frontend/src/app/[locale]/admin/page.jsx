@@ -68,6 +68,8 @@ export default function AdminDashboard() {
   const [selectedError, setSelectedError] = useState(null);
   const [testResult, setTestResult] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
+  const [featureStoreStats, setFeatureStoreStats] = useState(null);
+  const [jobLimit, setJobLimit] = useState(20);
 
   // Default: Yarın
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -79,12 +81,14 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, jobsRes] = await Promise.all([
+      const [statsRes, jobsRes, fsStatsRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`),
-        axios.get(`${API_URL}/admin/jobs`)
+        axios.get(`${API_URL}/admin/jobs?limit=${jobLimit}`),
+        axios.get(`${API_URL}/admin/feature-store/stats`).catch(() => ({ data: null }))
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);
+      setFeatureStoreStats(fsStatsRes.data);
     } catch (error) {
       console.error("Admin data fetch error:", error);
     }
@@ -94,7 +98,7 @@ export default function AdminDashboard() {
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [jobLimit]);
 
   const handleTrigger = async () => {
     if (!selectedDate) return;
@@ -292,18 +296,80 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* Feature Store Stats */}
+        {featureStoreStats?.fallback_stats && (
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-md font-bold text-white tracking-wide">📊 Feature Store Lag Fallback Statistics</h3>
+              <div className="text-xs text-gray-500">
+                Lookback: {featureStoreStats.config?.max_seasonal_lookback_years || 3} years
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-gray-950 rounded-lg p-4">
+                <div className="text-xs text-gray-500 mb-1">Total Requests</div>
+                <div className="text-2xl font-bold text-white">
+                  {featureStoreStats.fallback_stats.total_requests?.toLocaleString() || 0}
+                </div>
+              </div>
+              <div className="bg-gray-950 rounded-lg p-4">
+                <div className="text-xs text-gray-500 mb-1">Seasonal Match</div>
+                <div className="text-2xl font-bold text-green-400">
+                  {featureStoreStats.fallback_stats.seasonal_pct?.toFixed(1) || 0}%
+                </div>
+                <div className="text-[10px] text-gray-600 mt-1">
+                  {featureStoreStats.fallback_stats.seasonal_match?.toLocaleString() || 0} hits
+                </div>
+              </div>
+              <div className="bg-gray-950 rounded-lg p-4">
+                <div className="text-xs text-gray-500 mb-1">Hour Fallback</div>
+                <div className="text-2xl font-bold text-yellow-400">
+                  {featureStoreStats.fallback_stats.hour_fallback_pct?.toFixed(1) || 0}%
+                </div>
+                <div className="text-[10px] text-gray-600 mt-1">
+                  {featureStoreStats.fallback_stats.hour_fallback?.toLocaleString() || 0} hits
+                </div>
+              </div>
+              <div className="bg-gray-950 rounded-lg p-4">
+                <div className="text-xs text-gray-500 mb-1">Zero Fallback ⚠️</div>
+                <div className={`text-2xl font-bold ${
+                  (featureStoreStats.fallback_stats.zero_fallback_pct || 0) > 5 ? 'text-red-400' : 'text-gray-400'
+                }`}>
+                  {featureStoreStats.fallback_stats.zero_fallback_pct?.toFixed(1) || 0}%
+                </div>
+                <div className="text-[10px] text-gray-600 mt-1">
+                  {featureStoreStats.fallback_stats.zero_fallback?.toLocaleString() || 0} hits
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Job History Table */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-sm">
           <div className="p-5 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
             <h3 className="text-md font-bold text-white tracking-wide">Job Execution History</h3>
-            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-1 rounded">Last 10 jobs</span>
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500">Show:</label>
+              <select
+                value={jobLimit}
+                onChange={(e) => setJobLimit(Number(e.target.value))}
+                className="bg-gray-800 text-white text-xs px-2 py-1 rounded border border-gray-700 focus:outline-none focus:border-blue-600"
+              >
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+              <span className="text-xs text-gray-500">jobs</span>
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm text-gray-400">
               <thead className="bg-gray-950 text-gray-300 uppercase text-xs font-bold tracking-wider border-b border-gray-800">
                 <tr>
                   <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Job Type</th>
+                  <th className="px-6 py-4">Target Date</th>
                   <th className="px-6 py-4">Start Time</th>
                   <th className="px-6 py-4">Duration</th>
                   <th className="px-6 py-4 text-right">Records</th>
@@ -343,7 +409,14 @@ export default function AdminDashboard() {
                             )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-300 font-medium">{job.job_type}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-white font-bold text-sm">
+                            {job.target_date ? format(new Date(job.target_date), 'MMM dd, yyyy') : 'N/A'}
+                          </span>
+                          <span className="text-gray-500 text-[10px]">{job.job_type}</span>
+                        </div>
+                      </td>
                       <td className="px-6 py-4 font-mono text-xs">{format(new Date(job.start_time), 'yyyy-MM-dd HH:mm')}</td>
                       <td className="px-6 py-4 font-mono text-xs text-gray-500">{duration}</td>
                       <td className="px-6 py-4 text-right text-white font-bold font-mono">{job.records_processed.toLocaleString()}</td>

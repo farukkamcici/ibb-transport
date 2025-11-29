@@ -29,6 +29,7 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
         # 1. Create Job Log (STARTED)
         job_log = JobExecution(
             job_type="daily_forecast",
+            target_date=target_date,
             status="RUNNING",
             start_time=datetime.now()
         )
@@ -87,7 +88,12 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
                     continue
 
                 key = (line_name, hour)
-                lag_features = lag_batch['seasonal'].get(key) or lag_batch['fallback'].get(key) or fallback_lags
+                # Get lag features with proper fallback handling
+                lag_features = lag_batch['seasonal'].get(key) or lag_batch['fallback'].get(key)
+                
+                # If no lag features found OR if lag features contain None values, use fallback
+                if not lag_features or any(v is None for v in lag_features.values()):
+                    lag_features = fallback_lags.copy()
 
                 model_input_data = {
                     "line_name": line_name, "hour_of_day": hour,
@@ -160,8 +166,18 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
         job_log.records_processed = processed_count
         db.commit()
 
+        # 3. Log Feature Store fallback statistics for monitoring
+        fallback_stats = store.get_fallback_stats()
         print(f"✅ Job {job_log.id} completed. Processed {processed_count} predictions.")
-        return {"status": "success", "processed_count": processed_count}
+        print(f"📊 Lag Fallback Stats: {fallback_stats.get('seasonal_pct', 0):.1f}% seasonal, "
+              f"{fallback_stats.get('hour_fallback_pct', 0):.1f}% hour-based, "
+              f"{fallback_stats.get('zero_fallback_pct', 0):.1f}% zeros")
+        
+        return {
+            "status": "success", 
+            "processed_count": processed_count,
+            "fallback_stats": fallback_stats
+        }
 
     except Exception as e:
         # 3. Update Job Log (FAILED)
