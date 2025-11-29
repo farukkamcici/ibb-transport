@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import axios from 'axios';
 import { format, addDays } from 'date-fns';
+import SchedulerPanel from '@/components/admin/SchedulerPanel';
+import ForecastCoverage from '@/components/admin/ForecastCoverage';
 
 // --- COMPONENTS ---
 
@@ -70,6 +72,8 @@ export default function AdminDashboard() {
   const [isTesting, setIsTesting] = useState(false);
   const [featureStoreStats, setFeatureStoreStats] = useState(null);
   const [jobLimit, setJobLimit] = useState(20);
+  const [schedulerStatus, setSchedulerStatus] = useState(null);
+  const [forecastCoverage, setForecastCoverage] = useState(null);
 
   // Default: Yarın
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -81,14 +85,18 @@ export default function AdminDashboard() {
 
   const fetchData = async () => {
     try {
-      const [statsRes, jobsRes, fsStatsRes] = await Promise.all([
+      const [statsRes, jobsRes, fsStatsRes, schedRes, covRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`),
         axios.get(`${API_URL}/admin/jobs?limit=${jobLimit}`),
-        axios.get(`${API_URL}/admin/feature-store/stats`).catch(() => ({ data: null }))
+        axios.get(`${API_URL}/admin/feature-store/stats`).catch(() => ({ data: null })),
+        axios.get(`${API_URL}/admin/scheduler/status`).catch(() => ({ data: null })),
+        axios.get(`${API_URL}/admin/forecasts/coverage`).catch(() => ({ data: null }))
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);
       setFeatureStoreStats(fsStatsRes.data);
+      setSchedulerStatus(schedRes.data);
+      setForecastCoverage(covRes.data);
     } catch (error) {
       console.error("Admin data fetch error:", error);
     }
@@ -139,6 +147,28 @@ export default function AdminDashboard() {
       console.error(e);
     } finally {
       setIsTesting(false);
+    }
+  }
+
+  const handlePauseResume = async () => {
+    try {
+      const action = schedulerStatus?.status === 'paused' ? 'resume' : 'pause';
+      await axios.post(`${API_URL}/admin/scheduler/${action}`);
+      setTriggerMessage(`⏸️ Scheduler ${action}d successfully`);
+      fetchData();
+    } catch (e) {
+      setTriggerMessage("❌ Failed to toggle scheduler");
+    }
+  }
+
+  const handleDeleteDate = async (dateStr) => {
+    if (!confirm(`⚠️ Delete ALL forecasts for ${dateStr}?`)) return;
+    try {
+      const res = await axios.delete(`${API_URL}/admin/forecasts/date/${dateStr}`);
+      setTriggerMessage(`🗑️ Deleted ${res.data.deleted_count} forecasts for ${dateStr}`);
+      fetchData();
+    } catch (e) {
+      setTriggerMessage("❌ Failed to delete forecasts");
     }
   }
 
@@ -344,6 +374,18 @@ export default function AdminDashboard() {
             </div>
           </div>
         )}
+
+        {/* Scheduler Status */}
+        <SchedulerPanel 
+          schedulerStatus={schedulerStatus}
+          onPauseResume={handlePauseResume}
+        />
+
+        {/* Forecast Coverage */}
+        <ForecastCoverage 
+          coverage={forecastCoverage}
+          onDeleteDate={handleDeleteDate}
+        />
 
         {/* Job History Table */}
         <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden shadow-sm">

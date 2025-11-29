@@ -8,6 +8,7 @@ from .routers import admin, forecast, lines, nowcast
 from .services.store import FeatureStore
 from .utils.init_db import init_db
 from .state import AppState
+from .scheduler import start_scheduler, shutdown_scheduler
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -31,9 +32,16 @@ async def lifespan(app: FastAPI):
     # Initialize the Feature Store and assign to AppState
     AppState.store = FeatureStore()
     
+    # Start the cron job scheduler
+    print("Starting APScheduler for cron jobs...")
+    start_scheduler()
+    print("✅ Scheduler initialized")
+    
     yield
     
     # Clean up on shutdown
+    print("Shutting down scheduler...")
+    shutdown_scheduler()
     print("Clearing model and feature store cache...")
     AppState.model = None
     AppState.store = None

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, BackgroundTasks
+from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
@@ -9,6 +9,7 @@ from ..state import get_model, get_feature_store
 from ..services.batch_forecast import run_daily_forecast_job
 from ..services.store import FeatureStore
 from ..models import JobExecution, TransportLine, DailyForecast
+from .. import scheduler as sched
 
 router = APIRouter()
 
@@ -111,6 +112,103 @@ def reset_feature_store_stats(store: FeatureStore = Depends(get_feature_store)):
     """Reset fallback statistics counter."""
     store.reset_fallback_stats()
     return {"message": "Fallback statistics reset successfully."}
+
+
+@router.get("/admin/scheduler/status")
+def get_scheduler_status():
+    """Get current status of all cron jobs"""
+    return sched.get_scheduler_status()
+
+
+@router.post("/admin/scheduler/pause")
+def pause_scheduler():
+    """Pause all scheduled jobs (for maintenance)"""
+    sched.pause_scheduler()
+    return {"message": "Scheduler paused successfully"}
+
+
+@router.post("/admin/scheduler/resume")
+def resume_scheduler():
+    """Resume all scheduled jobs after pause"""
+    sched.resume_scheduler()
+    return {"message": "Scheduler resumed successfully"}
+
+
+@router.post("/admin/scheduler/trigger/forecast")
+def trigger_forecast_manually(target_date: date = None):
+    """Manually trigger forecast generation (bypasses schedule)"""
+    if target_date is None:
+        target_date = date.today() + timedelta(days=1)
+    
+    sched.trigger_forecast_now(target_date)
+    return {"message": f"Forecast generation triggered for {target_date}"}
+
+
+@router.post("/admin/scheduler/trigger/cleanup")
+def trigger_cleanup_manually(days_to_keep: int = 3):
+    """Manually trigger old data cleanup (bypasses schedule)"""
+    sched.trigger_cleanup_now(days_to_keep)
+    return {"message": f"Cleanup triggered (keeping last {days_to_keep} days)"}
+
+
+@router.post("/admin/scheduler/trigger/quality-check")
+def trigger_quality_check_manually():
+    """Manually trigger data quality check"""
+    sched.trigger_quality_check_now()
+    return {"message": "Data quality check triggered"}
+
+
+@router.delete("/admin/forecasts/date/{target_date}")
+def delete_forecasts_by_date(target_date: date, db: Session = Depends(get_db)):
+    """
+    Delete all forecasts for a specific date.
+    Useful for re-generating forecasts or manual cleanup.
+    """
+    try:
+        deleted = db.query(DailyForecast).filter(
+            DailyForecast.date == target_date
+        ).delete()
+        db.commit()
+        
+        return {
+            "message": f"Deleted forecasts for {target_date}",
+            "deleted_count": deleted
+        }
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/admin/forecasts/coverage")
+def get_forecast_coverage(db: Session = Depends(get_db)):
+    """
+    Get forecast coverage summary for next 7 days.
+    Shows which dates have forecasts and how many records.
+    """
+    from sqlalchemy import func
+    
+    # Get coverage for next 7 days
+    dates = [date.today() + timedelta(days=i) for i in range(-1, 7)]
+    
+    coverage = []
+    for check_date in dates:
+        count = db.query(DailyForecast).filter(
+            DailyForecast.date == check_date
+        ).count()
+        
+        # Get distinct lines count
+        lines_count = db.query(func.count(func.distinct(DailyForecast.line_name))).filter(
+            DailyForecast.date == check_date
+        ).scalar()
+        
+        coverage.append({
+            "date": check_date.isoformat(),
+            "forecast_count": count,
+            "lines_covered": lines_count,
+            "status": "complete" if count > 10000 else ("partial" if count > 0 else "missing")
+        })
+    
+    return {"coverage": coverage}
 
 
 @router.post("/admin/forecast/test")
