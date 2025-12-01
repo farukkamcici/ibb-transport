@@ -24,9 +24,12 @@ The Istanbul Public Transit Crowding Prediction Platform is a **multilingual, we
 - Our AI considers weather conditions (rain, temperature, wind) that affect ridership patterns
 - Get more accurate predictions during adverse weather conditions when people change their travel habits
 
-### 🗺️ **District-Level Heatmaps**
-- View crowding intensity across Istanbul's districts on an interactive map
-- Understand citywide transportation patterns and congestion hotspots
+### 🗺️ **Interactive Route Visualization**
+- View complete bus line routes on an interactive map with all stops
+- See dynamic direction labels showing destination stops (e.g., "KADIKÖY Yönü")
+- Interactive stop markers with names and locations
+- Distinctive start (green) and end (red) stop indicators
+- Smooth, professional route rendering with rounded polylines
 
 ### 💡 **"Best Time to Travel" Suggestions**
 - Receive personalized recommendations for less crowded departure times
@@ -36,6 +39,8 @@ The Istanbul Public Transit Crowding Prediction Platform is a **multilingual, we
 - Access the platform on any device - mobile, tablet, or desktop
 - Add to your phone's home screen for quick access
 - Works offline for basic functionality
+- Advanced mobile gestures: drag-to-minimize panels, haptic feedback
+- Responsive design with desktop sidebar and mobile drawer layouts
 
 ### 🌐 **Multi-Language Support**
 - Full interface available in Turkish (Türkçe) and English
@@ -123,8 +128,11 @@ The platform covers major Istanbul public transportation including:
 ### **Is my location data tracked?**
 The platform can use your location (if you permit it) only to show nearby transport options and provide relevant recommendations. Location data is not stored or tracked for advertising purposes.
 
+### **How do I save my favorite lines?**
+You can bookmark frequently used transport lines by clicking the star icon (⭐) when viewing a line's details. Your favorites are stored locally on your device and displayed on the Forecast page for quick access to real-time crowd predictions.
+
 ### **Can I get notifications?**
-Yes! Enable notifications to receive alerts about:
+Notification features are planned for future releases to alert you about:
 - Unusually high crowding on your saved favorite lines
 - Weather-related changes affecting your regular routes
 - Recommended departure times for your planned trips

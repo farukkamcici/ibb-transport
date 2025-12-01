@@ -6,7 +6,7 @@
 
 ## Technical Abstract
 
-This project implements a **LightGBM-based global forecasting model** for hourly public transportation ridership prediction in Istanbul, leveraging **24+ exogenous features** including weather data (Open-Meteo), calendar dimensions, and engineered lag/rolling window features. The system deploys a **FastAPI microservice architecture** with **Polars-optimized feature store**, **PostgreSQL persistence**, and a **React/Next.js Progressive Web Application** providing interactive crowd density visualization through **Leaflet maps** and **Recharts time-series analytics**. The platform achieves **sub-baseline MAE performance** through time-series cross-validation and serves **real-time crowd scoring** via percentile-ranking algorithms for operational decision support.
+This project implements a **LightGBM-based global forecasting model** for hourly public transportation ridership prediction in Istanbul, leveraging **24+ exogenous features** including weather data (Open-Meteo), calendar dimensions, and engineered lag/rolling window features. The system deploys a **FastAPI microservice architecture** with **Polars-optimized feature store**, **PostgreSQL persistence**, **APScheduler-based automated forecast generation**, and a **React/Next.js Progressive Web Application** with **Framer Motion animations**, **JWT authentication**, and **IETT SOAP API integration** for real-time bus stop geometries and route visualization. The platform provides **interactive Leaflet maps** with **45,000+ bus stops** and **500+ line routes**, **Recharts time-series analytics**, **multi-year seasonal lag fallback** strategy, and **locale-aware UI** (Turkish/English) with **favorites system** and **haptic feedback** for mobile users.
 
 ---
 
@@ -53,9 +53,12 @@ The codebase follows a **modular data science architecture** with clear separati
    - `test_model.py`: Hold-out test evaluation with error decomposition
 
 4. **API Service** (`src/api/`):
-   - `main.py`: FastAPI app with model loading & CORS configuration
-   - `services/store.py`: **Feature Store** with intelligent lag retrieval
-   - `routers/`: RESTful endpoints for forecasting, nowcasting, and line search
+   - `main.py`: FastAPI app with model loading, CORS, and JWT authentication
+   - `auth.py`: JWT token generation, bcrypt password hashing, protected route dependencies
+   - `scheduler.py`: APScheduler integration with 3 automated cron jobs (forecast/cleanup/quality-check)
+   - `services/store.py`: **Feature Store** with multi-year seasonal lag fallback strategy
+   - `services/batch_forecast.py`: Batch prediction service with retry logic and fallback statistics
+   - `routers/`: RESTful endpoints for forecasting, nowcasting, admin operations, and line search
 
 ---
 
@@ -68,6 +71,8 @@ The codebase follows a **modular data science architecture** with clear separati
 | **İBB Open Data** | Hourly passenger CSV | `passenger_count`, `line_name`, `datetime` | Static (historical) |
 | **Open-Meteo API** | JSON (Historical + Forecast) | `temperature_2m`, `precipitation`, `wind_speed_10m` | Hourly |
 | **Turkish Holiday Calendar** | Manual CSV | `is_holiday`, `holiday_win_m1/p1`, `is_school_term` | Annual |
+| **IETT SOAP API** | XML (DurakDetay_GYY) | 45,000+ bus stop geometries with lat/lng coordinates | On-demand |
+| **IETT Route API** | XML (getGuzergah_json) | 500+ bus line routes with ordered stop sequences | On-demand |
 
 ### Feature Engineering Justification
 
@@ -245,16 +250,132 @@ params:
 
 ---
 
+## Automation & Scheduling System
+
+### APScheduler Integration
+
+**Cron Job Architecture** (`src/api/scheduler.py`):
+
+The platform implements a comprehensive automated forecast generation system using **AsyncIOScheduler** for FastAPI compatibility:
+
+**Job 1: Daily Forecast Generation** (02:00 Europe/Istanbul)
+- Generates T+1 day forecasts for all transport lines (500+ lines × 24 hours)
+- Implements 3-attempt retry logic with exponential backoff (1min → 2min → 4min)
+- Batch prediction optimization reduces execution time from O(n) to O(1) per line
+- Tracks `target_date` in `job_executions` table for monitoring
+
+**Job 2: Forecast Cleanup** (03:00)
+- Maintains rolling 3-day window (T-1, T, T+1) by deleting forecasts older than 3 days
+- Enforces minimum 3-day retention to prevent accidental data loss
+- Automatically rotates: new T+1 generated at 02:00, old T-3 deleted at 03:00
+
+**Job 3: Data Quality Check** (04:00)
+- Verifies forecast coverage, Feature Store health, and fallback statistics
+- Logs warnings but doesn't block operations (proactive issue detection)
+- Monitors zero fallback rate with alerts when exceeding 5%
+
+**Robustness Features:**
+- **Misfire grace time**: 1-2 hours - allows jobs to run even if scheduled time missed due to server downtime
+- **Job coalescing**: Multiple missed schedules combine into single execution, avoiding duplicate work
+- **Graceful shutdown**: Waits for running jobs to complete before stopping
+
+### Admin Control APIs
+
+**Scheduler Management Endpoints:**
+- `GET /admin/scheduler/status` - View scheduler state and all job information
+- `POST /admin/scheduler/pause` / `POST /admin/scheduler/resume` - Maintenance control
+- `POST /admin/scheduler/trigger/{job_type}` - Manual job execution (forecast/cleanup/quality-check)
+- `DELETE /admin/forecasts/date/{date}` - Delete all forecasts for specific date
+- `GET /admin/forecasts/coverage` - 7-day forecast availability summary with status indicators
+- `DELETE /admin/database/cleanup-all` - Bulk deletion of forecasts and job history with confirmation workflow
+
+**Feature Store Monitoring:**
+- `GET /admin/feature-store/stats` - Fallback statistics (seasonal match %, hour fallback %, zero fallback %)
+- `POST /admin/feature-store/reset-stats` - Reset counters for fresh tracking
+- `POST /admin/forecast/test` - Performance testing with configurable line/hour counts
+
+---
+
+## Authentication & Security
+
+### JWT-Based Admin Authentication
+
+**Backend Security** (`src/api/auth.py`):
+- **Token Configuration**: HS256 algorithm, 24-hour expiration, secret key from `ADMIN_SECRET_KEY` env var
+- **Password Hashing**: bcrypt via passlib with 72-byte truncation for compatibility
+- **Protected Routes**: `get_current_user()` FastAPI dependency validates JWT and returns authenticated user
+- **Database Schema**: `admin_users` table with username, hashed_password, created_at, last_login columns
+
+**Admin User Management APIs:**
+- `POST /admin/login` - Accepts username/password, returns JWT access token
+- `GET /admin/users` - List all admin users with usernames and last login timestamps
+- `GET /admin/users/me` - Return authenticated admin's profile
+- `POST /admin/users` - Create new admin user with password hashing
+- `POST /admin/users/change-password` - Update password for existing user
+- `DELETE /admin/users/{username}` - Remove admin user (prevents deletion of last admin)
+
+**Frontend Authentication** (`frontend/src/contexts/AuthContext.jsx`):
+- **React Context**: Global admin session management with `login()`, `logout()`, `isLoading` states
+- **Token Storage**: localStorage persistence with `adminToken` key for cross-page-reload authentication
+- **Protected Routes**: `ProtectedRoute` wrapper component checks authentication before rendering admin pages
+- **Locale-Aware Navigation**: Login/logout flows preserve language selection (Turkish/English)
+
+---
+
+## Data Ingestion & Route Visualization
+
+### IETT SOAP API Integration
+
+**Bus Stop Geometry Ingestion** (`src/data_prep/fetch_geometries.py`):
+- Fetches 45,000+ unique bus stop records from IETT's `DurakDetay_GYY` SOAP service
+- Multi-step flow: (1) Get all stop codes via `getHatDurakListesi_json`, (2) Batch process 100 stops at a time, (3) Extract geometry from `getKoordinatGetir_json`
+- Data structure: `{stop_code: {name, lat, lng, district, type}}`
+- Implements retry mechanism with exponential backoff (2s → 4s → 8s delays)
+- Caching strategy for fault tolerance during batch processing
+- Output: `frontend/public/data/stops_geometry.json` (90MB+ structured JSON)
+
+**Line Routes Ingestion** (`src/data_prep/fetch_line_routes.py`):
+- Fetches ordered stop sequences for 500+ bus lines from `getGuzergah_json` SOAP endpoint
+- Handles bidirectional routes: "G" (gidiş/outbound) and "D" (dönüş/return)
+- Multi-level structure: `{line_code: {direction: [ordered_stop_codes]}}`
+- Validation for empty routes, missing directions, and malformed responses
+- Output: `frontend/public/data/line_routes.json` (67MB+ structured JSON)
+
+### Frontend Route System
+
+**useRoutePolyline Hook** (`frontend/src/hooks/useRoutePolyline.js`):
+- Module-level caching with singleton loading pattern (`stopsCache`, `routesCache`, `loadingPromise`)
+- **`getRouteStops(lineCode, direction)`**: Returns detailed stop objects `[{code, name, lat, lng, district}]`
+- **`getDirectionInfo(lineCode)`**: Generates dynamic direction labels by extracting destination stop names
+  - Format: `"{DESTINATION_STOP_NAME} Yönü"` (e.g., "KADIKÖY Yönü" instead of "Gidiş")
+  - Stop name formatting: removes suffixes (MAH., CAD., SOK.) and converts to uppercase
+  - Returns metadata: `{label, firstStop, lastStop, firstStopCode, lastStopCode}` per direction
+- **`getPolyline(lineCode, direction)`**: Returns lat/lng coordinate arrays for Leaflet rendering
+- **`getAvailableDirections(lineCode)`**: Determines which directions exist for a line
+
+**MapView Enhancements** (`frontend/src/components/map/MapView.jsx`):
+- **Polyline Rendering**: Blue routes with `lineCap="round"` and `lineJoin="round"` for smooth appearance
+- **Interactive Stop Markers**: `<CircleMarker>` components with tooltips displaying stop names on hover
+  - **Start Stop**: Green filled circle (radius=6) with "Start" label
+  - **End Stop**: Red filled circle (radius=6) with "End" label  
+  - **Regular Stops**: White filled circles with blue borders (radius=4, weight=2)
+- **Auto-Fit Bounds**: `MapController` component uses `useMap()` hook to pan/zoom showing full route with 50px padding
+- **Performance Optimization**: `useMemo` for route coordinates and stops to prevent unnecessary recalculations
+
+---
+
 ## UI Platform Architecture & User Experience Flow
 
 ### Frontend Technology Stack
 
-**Framework**: **Next.js 16** with **App Router** architecture
+**Framework**: **Next.js 16** with **App Router** and **React 19**
 **Styling**: **Tailwind CSS** with custom design system  
-**Mapping**: **React Leaflet** with OpenStreetMap tiles
-**State Management**: **Zustand** (lightweight Redux alternative)
+**Animations**: **Framer Motion 12** for advanced gestures and transitions
+**Mapping**: **React Leaflet 5** with CartoDB light tiles and IETT route overlays
+**State Management**: **Zustand 5** with localStorage persistence middleware
 **Charts**: **Recharts** for time-series crowd visualization
-**PWA**: Progressive Web App with offline capabilities
+**Internationalization**: **next-intl 4.5.5** for Turkish/English localization
+**PWA**: **@ducanh2912/next-pwa** with offline capabilities and home screen installation
 
 ### Component Architecture
 
@@ -278,58 +399,120 @@ export default function Home() {
 
 **MapView.jsx**: Leaflet integration with Istanbul-centered view
 - **Base Layer**: CartoDB light tiles for mobile-optimized rendering
-- **User Location**: GPS integration with animated position marker
-- **Transport Layers**: (Future) GeoJSON overlays for line geometries
-- **Custom Controls**: LocateButton for geolocation services
+- **User Location**: GPS integration with animated position marker (pulsing blue dot)
+- **Route Visualization**: Polyline rendering for 500+ bus lines with 45,000+ stop markers
+- **Interactive Markers**: CircleMarker components with tooltips, distinctive start (green)/end (red) styling
+- **Auto-Fit Bounds**: Automatic map panning/zooming when routes displayed
+- **Custom Controls**: LocateButton with dynamic positioning based on panel state
+
+**LocateButton.jsx**: Geolocation service with responsive positioning
+- Dynamic `bottom` property: `12rem` (panel open) vs `5rem` (panel closed)
+- Smooth transition animations (`transition-all duration-300`)
+- Loading state with spinner icon during GPS acquisition
 
 **MapCaller.jsx**: Dynamic import wrapper for SSR compatibility (Leaflet requires client-side rendering)
 
 #### **3. Prediction Interface** (`components/ui/`)
 
-**LineDetailPanel.jsx**: **Core prediction interface**
+**LineDetailPanel.jsx**: **Core prediction interface with Framer Motion**
 ```typescript
-// State-driven panel with real-time API integration
+// State-driven panel with animations and gestures
 const LineDetailPanel = () => {
-  const { selectedLine, selectedHour } = useAppStore();
+  const { selectedLine, selectedHour, showRoute, selectedDirection } = useAppStore();
   const [forecastData, setForecastData] = useState([]);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const isDesktop = useMediaQuery('(min-width: 768px)');
+  const controls = useAnimation();
   
-  useEffect(() => {
-    getForecast(selectedLine.id, new Date())
-      .then(setForecastData)
-      .catch(handleError);
-  }, [selectedLine]);
+  // Drag-to-minimize gesture (mobile only)
+  const handleDragEnd = (event, info) => {
+    const threshold = 100;
+    if (info.offset.y > threshold || info.velocity.y > 500) {
+      setIsMinimized(true);
+      vibrate(10);
+    }
+  };
   
   return (
-    <div className="fixed bottom-0 rounded-t-3xl bg-surface p-6">
+    <motion.div 
+      drag={!isDesktop ? "y" : false}
+      dragConstraints={{ top: 0, bottom: 0 }}
+      onDragEnd={handleDragEnd}
+      animate={controls}
+      className={cn(
+        "fixed z-[899] bg-slate-900/95 backdrop-blur-md",
+        isDesktop ? "top-20 left-4 w-96" : "bottom-16 left-0 right-0"
+      )}
+    >
+      {/* Minimized state: Line code + route name + occupancy % + direction toggle */}
+      {/* Expanded state: Full data + time slider + 24h chart + route controls */}
       <CrowdStatusDisplay />
       <TimeSlider />
       <CrowdChart data={forecastData} />
-    </div>
+      <RouteControls />
+    </motion.div>
   );
 };
 ```
 
-**TimeSlider.jsx**: Hour selection interface (0-23 range slider)
-**CrowdChart.jsx**: **Recharts** area chart with gradient visualization
-**SearchBar.jsx**: Debounced line search with API integration
+**Key Features:**
+- **Framer Motion Integration**: Drag gestures, elastic constraints, AnimatePresence for smooth transitions
+- **Haptic Feedback**: `navigator.vibrate()` API (10ms major actions, 5ms minor)
+- **Responsive Layouts**: Desktop sidebar (384px fixed width) vs mobile drawer (full-width)
+- **Minimize/Expand**: Click/drag to toggle between compact and full views
+- **Route Visualization**: Direction selector with dynamic labels ("KADIKÖY Yönü"), show/hide toggle
+- **Internationalization**: All strings localized via `useTranslations('lineDetail')` hook
+- **Favorites System**: Star button with localStorage persistence
+
+**TimeSlider.jsx**: Hour selection interface (0-23 range slider) with vibration feedback
+**CrowdChart.jsx**: **Recharts** area chart with gradient visualization and collapsible mobile view
+**SearchBar.jsx**: Debounced line search with numeric keyboard support (`inputMode="numeric"`)
+**WeatherBadge.jsx**: Istanbul weather nowcast with dropdown hourly forecast
 
 ### State Management Architecture
 
 **Zustand Store** (`store/useAppStore.js`):
 ```typescript
-const useAppStore = create((set) => ({
-  // Core application state
-  selectedLine: null,        // Currently viewed transport line
-  isPanelOpen: false,        // Detail panel visibility
-  selectedHour: new Date().getHours(), // Time selector (0-23)
-  userLocation: null,        // GPS coordinates [lat, lng]
-  alertMessage: null,        // User notifications
-  
-  // State mutations  
-  setSelectedLine: (line) => set({ selectedLine: line, isPanelOpen: true }),
-  setSelectedHour: (hour) => set({ selectedHour: hour }),
-  setUserLocation: (location) => set({ userLocation: location }),
-}));
+const useAppStore = create(
+  persist(
+    (set, get) => ({
+      // Core application state
+      selectedLine: null,        // Currently viewed transport line
+      isPanelOpen: false,        // Detail panel visibility
+      selectedHour: new Date().getHours(), // Time selector (0-23)
+      userLocation: null,        // GPS coordinates [lat, lng]
+      alertMessage: null,        // User notifications
+      
+      // Route visualization state
+      showRoute: false,          // Route polyline visibility toggle
+      selectedDirection: 'G',    // Active direction (G=gidiş, D=dönüş)
+      
+      // Favorites system
+      favorites: [],             // Array of favorited line IDs
+      toggleFavorite: (lineId) => {
+        const favs = get().favorites;
+        set({ 
+          favorites: favs.includes(lineId) 
+            ? favs.filter(id => id !== lineId) 
+            : [...favs, lineId]
+        });
+      },
+      isFavorite: (lineId) => get().favorites.includes(lineId),
+      
+      // State mutations  
+      setSelectedLine: (line) => set({ selectedLine: line, isPanelOpen: true }),
+      setSelectedHour: (hour) => set({ selectedHour: hour }),
+      setUserLocation: (location) => set({ userLocation: location }),
+      setShowRoute: (show) => set({ showRoute: show }),
+      setSelectedDirection: (dir) => set({ selectedDirection: dir }),
+      closePanel: () => set({ isPanelOpen: false, selectedLine: null, showRoute: false }),
+    }),
+    {
+      name: 'ibb-transport-storage',
+      partialize: (state) => ({ favorites: state.favorites }), // Only persist favorites
+    }
+  )
+);
 ```
 
 **State Flow**:

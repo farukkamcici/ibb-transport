@@ -429,7 +429,7 @@ export default function LineDetailPanel() {
                 </div>
               </div>
 
-              <div className="overflow-y-auto flex-1 px-4 space-y-3">
+              <div className="overflow-y-auto flex-1 px-4 space-y-3 pb-6">
                 <TimeSlider />
 
                 <div className="rounded-xl bg-background border border-white/5 overflow-hidden">

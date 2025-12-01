@@ -1,6 +1,578 @@
 # Project Logbook
 
-_Last updated: 2025-11-29_
+_Last updated: 2025-12-01_
+
+## Entry · 2025-12-01 18:34 (+03)
+
+### Commit
+- **Hash:** `f78ba335dc7de3b794197c9bb82f8007dfc67145`
+- **Message:** `feat(ui): localize strings in LineDetailPanel for multilingual support`
+
+### Summary
+- Completed i18n implementation for LineDetailPanel by replacing all hardcoded strings with localized translations, ensuring full multilingual support for Turkish and English users.
+
+### Details
+- **Translation Files:**
+  - Added 10 new translation keys to `messages/tr.json` and `messages/en.json`:
+    - `lineDetail.capacity`, `lineDetail.predicted`, `lineDetail.passengers` - data display labels
+    - `lineDetail.routeView`, `lineDetail.show`, `lineDetail.hide` - route visibility controls
+    - `lineDetail.expand`, `lineDetail.minimize` - panel state controls
+    - `lineDetail.noRouteData`, `lineDetail.changeDirection` - informational messages
+    - `lineDetail.addToFavorites`, `lineDetail.removeFromFavorites` - accessibility labels
+- **Component Updates:**
+  - Replaced hardcoded English strings ("Capacity", "Predicted", "passengers") with `t()` function calls
+  - Localized route view controls ("Route View", "Show"/"Hide")
+  - Localized panel state labels ("Expand"/"Minimize")
+  - Localized button tooltips and aria-labels for screen reader accessibility
+  - Updated Turkish hardcoded string ("Yön değiştir") to use translation function
+- **Accessibility Improvements:**
+  - All `aria-label` attributes now use localized strings for favorites buttons
+  - All `title` attributes for tooltips now support both languages
+  - Screen reader users will receive messages in their selected language
+
+### Notes
+- LineDetailPanel now fully supports Turkish/English language switching without requiring code changes
+- All user-facing text in the component is now translatable via JSON files
+- Follows existing i18n patterns established in SearchBar, Weather, and Forecast components
+- Maintains consistency with project's next-intl v4.5.5 implementation
+
+## Entry · 2025-12-01 18:25 (+03)
+
+### Commit
+- **Hash:** `049f98f949c8b608afb6f434485509e4f093688b`
+- **Message:** `feat(ui): enhance route visualization and direction info in LineDetailPanel`
+
+### Summary
+- Implemented comprehensive route visualization system with dynamic direction labels, interactive stop markers, and enhanced map display for improved user experience when viewing bus line routes.
+
+### Details
+- **useRoutePolyline Hook Enhancements:**
+  - Added `getRouteStops(lineCode, direction)` method returning detailed stop objects with `{code, name, lat, lng, district}` structure
+  - Implemented `getDirectionInfo(lineCode)` method generating dynamic direction labels by extracting destination stop names
+  - Direction label format: `"{DESTINATION_STOP_NAME} Yönü"` (e.g., "KADIKÖY Yönü" instead of generic "Gidiş")
+  - Stop name formatting logic removes suffixes (MAH., CAD., SOK.) and converts to uppercase for consistency
+  - Returns comprehensive metadata: `{label, firstStop, lastStop, firstStopCode, lastStopCode}` per direction
+- **LineDetailPanel Updates:**
+  - Replaced static direction buttons ("Gidiş"/"Dönüş") with dynamic labels from `getDirectionInfo()`
+  - Added text truncation with `title` tooltips for long destination names
+  - Integrated vibration feedback (5ms) on direction change for tactile response
+  - Updated both minimized and expanded state direction selectors with new labels
+  - Minimized state: Compact single-line display with active direction label + toggle button using `ArrowLeftRight` icon
+  - Expanded state: Side-by-side direction buttons with full destination names
+- **MapView Enhancements:**
+  - Added `CircleMarker` components for all stops along the route with interactive tooltips
+  - Implemented polyline styling with `lineCap="round"` and `lineJoin="round"` for smooth, professional appearance
+  - Distinctive start stop marker: Green filled circle (radius=6) with "Start" label and stop name in tooltip
+  - Distinctive end stop marker: Red filled circle (radius=6) with "End" label and stop name in tooltip
+  - Regular stop markers: White filled circles with blue borders (radius=4, weight=2)
+  - All markers include `<Tooltip>` components displaying stop names on hover
+  - Added `useMemo` optimization for `routeCoordinates` and `routeStops` to prevent unnecessary recalculations
+- **LocateButton Position Adjustment:**
+  - Implemented dynamic positioning based on panel state: `bottom: isPanelOpen ? '12rem' : '5rem'`
+  - Added smooth transition animation (`transition-all duration-300`) when panel opens/closes
+  - Prevents location button from being hidden behind expanded panel while keeping it accessible when panel is closed
+
+### Notes
+- Direction labels are dynamically generated from actual route data rather than hardcoded
+- Stop name formatting handles common Turkish address abbreviations (MAH., CAD., SOK.)
+- Map visualization provides clear visual hierarchy: green (start) → blue (intermediate stops) → red (end)
+- Performance optimized with useMemo to prevent expensive recalculations on every render
+- User can click direction toggle button in minimized state to cycle through available directions
+- All stop markers are interactive with hover tooltips showing full stop names
+- System gracefully handles routes with single direction by hiding direction selector
+
+## Entry · 2025-12-01 17:59 (+03)
+
+### Commit
+- **Hash:** `0af174a95dd1c6e85f4c02484c6bb0a0a41ae337`
+- **Message:** `feat(ui): enhance SearchBar with numeric input support`
+
+### Summary
+- Added mobile-optimized numeric keyboard support to SearchBar input field for faster bus line number entry on mobile devices.
+
+### Details
+- **Input Attributes:**
+  - Added `inputMode="numeric"` - triggers numeric keyboard on mobile browsers
+  - Added `pattern="[0-9]*"` - optimizes for iOS Safari to show numeric keypad
+- **User Experience:**
+  - Mobile users now see numeric keyboard when searching for bus lines (e.g., "500T", "M2")
+  - Reduces keyboard switching time when entering line numbers
+  - Desktop behavior unchanged (standard keyboard)
+
+### Notes
+- Improves mobile UX for primary use case (searching by line number)
+- Pattern attribute ensures iOS compatibility alongside inputMode
+- Still allows non-numeric input (type="text" preserved) for alphanumeric lines like "M2", "500T"
+
+## Entry · 2025-12-01 17:50 (+03)
+
+### Commit
+- **Hash:** `5520ee664fc7647092ca34b5198f111626203220`
+- **Message:** `feat(ui): integrate framer-motion in LineDetailPanel for animations and haptic feedback`
+
+### Summary
+- Integrated Framer Motion for advanced animations and drag gestures in LineDetailPanel, adding smooth transitions, drag-to-minimize functionality, and haptic vibration feedback for improved mobile user experience.
+
+### Details
+- **Dependencies:**
+  - Added `framer-motion@^12.23.25` to `package.json` for declarative animation support
+- **Drag-to-Minimize Functionality:**
+  - Implemented vertical drag gesture (`drag="y"`) on mobile panel with elastic constraints
+  - Drag threshold: 100px offset or 500px/s velocity to trigger minimize/expand
+  - Added `dragElastic={0.2}` for subtle rubber-band effect at bounds
+  - `onDragEnd` handler evaluates drag distance and velocity to determine final state
+  - Animation controls reset panel position smoothly after drag release
+- **Animated Transitions:**
+  - Wrapped overlay backdrop with `<AnimatePresence>` for fade-in/out effects
+  - Panel height transitions smoothly between states: `auto` (minimized), `55vh` (expanded), `75vh` (chart expanded)
+  - Chart section uses `motion.div` with height/opacity animations (`initial/animate/exit` props)
+  - Transition duration: 200-300ms for responsive feel
+- **Haptic Feedback:**
+  - Added vibration patterns using `navigator.vibrate()` API:
+    - 10ms vibration on minimize/expand toggle
+    - 10ms vibration on route show/hide toggle
+    - 5ms vibration on direction change
+    - 5ms vibration on favorite toggle
+    - 5ms vibration on chart expand/collapse
+  - Implemented safe vibration function with `typeof navigator !== 'undefined'` check for SSR compatibility
+- **State Management:**
+  - Added `isChartExpanded` local state for collapsible chart area
+  - Dynamic panel height calculation based on `isMinimized` and `isChartExpanded` states
+  - Desktop mode: Fixed height with `max-h-[calc(100vh-6rem)]`
+  - Mobile mode: Dynamic height with smooth CSS transitions (`transition: 'height 0.3s ease-out'`)
+- **Responsive Behavior:**
+  - Drag gestures disabled on desktop (`drag={!isDesktop ? "y" : false}`)
+  - Mobile panel positioned at `bottom-16` (above tab bar)
+  - Desktop panel positioned at `top-20 left-4` with fixed width `w-96`
+  - Added `useEffect` to auto-minimize panel when route is shown
+
+### Notes
+- Framer Motion provides better animation performance than CSS-only transitions through hardware acceleration
+- Drag threshold tuned for comfortable mobile use - prevents accidental minimize while scrolling content
+- Haptic feedback duration carefully chosen: 10ms for major actions, 5ms for minor interactions
+- `AnimatePresence` required for exit animations when components unmount
+- Vibration API gracefully degrades on browsers/devices that don't support it
+- Chart expansion is mobile-only feature to save screen space - desktop always shows chart
+
+## Entry · 2025-12-01 17:22 (+03)
+
+### Commit
+- **Hash:** `34c8cab9bdade6b21e2490bdbac692cf11ef1a5a`
+- **Message:** `feat(ui): implement useMediaQuery hook and enhance LineDetailPanel responsiveness`
+
+### Summary
+- Implemented custom `useMediaQuery` React hook and redesigned LineDetailPanel with desktop-specific layout improvements, minimize/expand functionality, and enhanced visual styling for better responsiveness across devices.
+
+### Details
+- **useMediaQuery Hook:**
+  - Created custom React hook (`frontend/src/hooks/useMediaQuery.js`) for responsive design queries
+  - Uses `window.matchMedia()` API with event listener for real-time breakpoint detection
+  - Returns boolean indicating whether media query matches
+  - Includes SSR-safe initial state and cleanup on unmount
+- **LineDetailPanel Desktop Layout:**
+  - Added desktop-specific positioning: `top-20 left-4 w-96` (fixed 384px width sidebar)
+  - Desktop height constraint: `max-h-[calc(100vh-6rem)]` to prevent viewport overflow
+  - Mobile layout unchanged: `bottom-16 left-0 right-0` full-width drawer
+- **Minimize/Expand Functionality:**
+  - Added `isMinimized` state with `toggleMinimize()` handler
+  - Desktop: Shows minimize/expand button in drag handle area with chevron icons and text labels
+  - Mobile: Retains swipe-down gesture behavior (drag handle visible as horizontal bar)
+  - Minimized state shows compact view: line code + route name + occupancy badge + favorite/close buttons
+  - Expanded state shows full panel: all data cards, time slider, and 24h forecast chart
+- **Enhanced Styling:**
+  - Added direction selector UI when route is visible with multiple directions
+  - Direction buttons with animated pulse effect on active MapPin icon
+  - Improved crowd level badge styling: rounded corners, borders, larger text
+  - Added transition animations for height changes (`transition-all duration-300`)
+  - Refined spacing and padding for cleaner visual hierarchy
+
+### Notes
+- `useMediaQuery('(min-width: 768px)')` used as desktop breakpoint (matches Tailwind's `md:` prefix)
+- Desktop sidebar layout enables simultaneous map interaction and data viewing
+- Minimized state useful when user wants to see more map area while keeping line info accessible
+- Direction selector only appears when route visualization is active and multiple directions available
+- Hook pattern allows reuse across any component needing responsive behavior detection
+
+## Entry · 2025-12-01 17:14 (+03)
+
+### Commit
+- **Hash:** `fb0cea15aabe8b55d686ebb373b118d81585afba`
+- **Message:** `feat(data-prep): add IETT bus stop and line routes ingestion scripts`
+
+### Summary
+- Implemented comprehensive IETT bus data ingestion system with SOAP API integration, fetching and processing bus stop geometries and line route sequences for frontend map and route visualization features.
+
+### Details
+- **Bus Stop Geometry Ingestion (`fetch_geometries.py`):**
+  - Implemented SOAP API client for IETT's `DurakDetay_GYY` service with retry mechanism and exponential backoff (2s → 4s → 8s delays)
+  - Multi-step data flow: (1) Fetch all stop codes via `getHatDurakListesi_json`, (2) Process in batches of 100 stops, (3) Extract geometry from `getKoordinatGetir_json` SOAP responses
+  - Data structure: `{stop_code: {name, lat, lng, district, type}}` with 45,000+ unique stop records
+  - Implemented deduplication logic to handle stops appearing on multiple lines
+  - Added caching mechanism to save intermediate batches for fault tolerance
+  - Output: `frontend/public/data/stops_geometry.json` (90MB+ nested JSON)
+- **Line Routes Ingestion (`fetch_line_routes.py`):**
+  - Fetches ordered stop sequences for each bus line from IETT's `getGuzergah_json` SOAP endpoint
+  - Handles bidirectional routes: "G" (gidiş/outbound) and "D" (dönüş/return) per line
+  - Multi-level data structure: `{line_code: {direction: [ordered_stop_codes]}}`
+  - Includes validation for empty routes, missing directions, and malformed responses
+  - Output: `frontend/public/data/line_routes.json` (67MB+ structured JSON with 500+ lines)
+- **useRoutePolyline Hook:**
+  - Created custom React hook to load and cache route data in browser
+  - Implements singleton loading pattern with module-level caching (`stopsCache`, `routesCache`, `loadingPromise`)
+  - Provides `getPolyline(lineCode, direction)` method returning lat/lng coordinate arrays for Leaflet rendering
+  - Provides `getAvailableDirections(lineCode)` to determine which directions exist for a line
+  - Handles loading states, errors, and missing data gracefully
+- **MapView Integration:**
+  - Added `<Polyline>` component to render bus routes when `showRoute` is true
+  - Polyline styling: blue color (#3b82f6), 4px weight, 70% opacity
+  - Implemented `MapController` component using `useMap()` hook to auto-fit bounds when route is displayed
+  - Map automatically pans and zooms to show full route with 50px padding
+- **LineDetailPanel Route Controls:**
+  - Added "Route View" card with toggle button to show/hide route on map
+  - Direction selector buttons appear when route is visible and multiple directions available
+  - Button states: active direction highlighted in primary blue, inactive in muted gray
+  - Integrated with Zustand store: `showRoute`, `selectedDirection`, `setSelectedDirection`
+  - Auto-minimizes panel when route is shown to maximize map visibility
+- **Documentation:**
+  - Created `src/data_prep/README_GEOMETRIES.md` (163 lines) with SOAP API documentation, data structure schemas, troubleshooting guide, and usage examples
+
+### Notes
+- IETT SOAP API requires XML-formatted requests with namespace declarations and structured parameters
+- Stop geometry data crucial for rendering route polylines and calculating spatial queries
+- Line route sequences preserve order, enabling accurate polyline rendering and stop-to-stop navigation
+- Batch processing (100 stops/request) balances API load vs request overhead
+- Caching strategy prevents re-downloading 157MB of data on every frontend load
+- Retry logic with exponential backoff handles transient network failures and API rate limits
+- Frontend hook ensures data loads once per browser session, improving performance
+- Route auto-fit behavior enhances UX by eliminating manual zoom/pan when viewing routes
+- System supports 500+ bus lines with both directions, covering Istanbul's public transport network
+
+## Entry · 2025-12-01 13:23 (+03)
+
+### Commit
+- **Hash:** `4a92ad4ce24436f1e9a0c865fbcd65df648ed6ef`
+- **Message:** `feat(admin): add database cleanup endpoint and Danger Zone UI`
+
+### Summary
+- Implemented database cleanup functionality for bulk deletion of forecasts and job execution history, with admin UI confirmation workflow to prevent accidental data loss.
+
+### Details
+- **API Endpoint:**
+  - Added `DELETE /admin/database/cleanup-all` endpoint in `src/api/routers/admin.py`
+  - Deletes all records from `forecasts` and `job_executions` tables using SQLAlchemy bulk delete
+  - Requires admin authentication via `get_current_user` dependency
+  - Returns cleanup summary: `{deleted_forecasts: int, deleted_jobs: int}`
+  - Uses database session commit to ensure transactional consistency
+- **Admin UI - Danger Zone:**
+  - Added "Danger Zone" section at bottom of admin dashboard with red warning styling
+  - Cleanup button disabled until user types "DELETE" in confirmation input field
+  - Shows loading spinner during cleanup operation
+  - Displays success message with deleted record counts after completion
+  - Input field clears automatically after successful cleanup
+- **Safety Mechanisms:**
+  - Confirmation input with exact string match ("DELETE") required to enable button
+  - Button styling changes from disabled gray to destructive red when confirmed
+  - Operation requires admin JWT token, preventing unauthorized access
+  - User feedback through status messages and disabled states
+
+### Notes
+- Cleanup operation is irreversible - all forecast and job history data permanently deleted
+- Useful for testing, development resets, or database maintenance scenarios
+- Does not affect `admin_users`, `transport_lines`, or other core tables
+- Frontend confirmation workflow prevents accidental clicks from causing data loss
+- Cleanup summary provides transparency about operation scope
+- Consider adding scheduled cleanup in future for automatic old data pruning
+
+## Entry · 2025-12-01 13:12 (+03)
+
+### Commit
+- **Hash:** `adcf62eeb04b04fcb716d8763be2fef14bf6ed64`
+- **Message:** `feat(admin): enhance scheduler panel with manual job triggers and quick actions`
+
+### Summary
+- Enhanced SchedulerPanel component with manual job trigger functionality and quick actions UI, enabling on-demand execution of forecast generation, cleanup, and quality check jobs through admin dashboard.
+
+### Details
+- **Manual Job Triggers:**
+  - Added trigger buttons for all 3 jobs: "Trigger Now" for forecast generation, cleanup, and quality check
+  - Integrated with existing admin API endpoints: `POST /admin/scheduler/trigger/{job_type}`
+  - Implemented loading states per button with spinner icons during execution
+  - Added success/error feedback with 3-second auto-dismiss messages
+  - Secure API calls with `getAuthHeaders()` for token-based authentication
+- **Quick Actions Section:**
+  - Created dedicated "Quick Actions" UI card with descriptive task buttons
+  - Actions include: "Generate Today's Forecast", "Clean Old Data", "Run Quality Check"
+  - Each button shows clear description of what operation will be performed
+  - Loading states prevent duplicate triggers while job is running
+  - Status messages display below actions with color-coded success (green) / error (red) styling
+- **UI/UX Improvements:**
+  - Consolidated trigger controls: removed inline "Trigger Now" from individual job cards
+  - Improved visual hierarchy: Quick Actions panel separate from scheduler status display
+  - Enhanced button styling: primary blue for actions, gray borders for secondary controls
+  - Better error messaging: shows full API error messages to admin users
+  - Auto-refresh continues after manual triggers to show updated job statistics
+
+### Notes
+- Manual triggers bypass schedule and execute immediately, useful for:
+  - Testing job functionality without waiting for cron schedule
+  - Emergency forecast regeneration if automated job fails
+  - On-demand data cleanup outside scheduled 03:00 run
+  - Ad-hoc quality checks before deployments
+- Quick Actions centralize common admin tasks in one location
+- Loading states prevent double-triggering jobs (could cause conflicts)
+- Success messages auto-dismiss to reduce UI clutter
+- Trigger operations logged in `job_executions` table with `job_type="manual_trigger"`
+- Consider rate limiting if manual triggers become too frequent
+
+## Entry · 2025-12-01 13:05 (+03)
+
+### Commit
+- **Hash:** `3dd6e11a7363c9ee7260492cce61689c0034ec42`
+- **Message:** `feat(admin): add locale-based admin dashboard and user management UI`
+
+### Summary
+- Implemented comprehensive admin dashboard with user management capabilities, featuring locale-aware routing, CRUD operations for admin users, and enhanced scheduler/forecast coverage visualization.
+
+### Details
+- **AdminDashboard Component:**
+  - Refactored `page.jsx` with locale-aware routing using `useParams()` for dynamic locale handling
+  - Implemented dashboard layout with 6 main sections: scheduler status, job history, forecast coverage, feature store stats, performance testing, and user management
+  - Added secure API calls with `getAuthHeaders()` for all data fetching operations
+  - Integrated auto-refresh (5-second intervals) for scheduler and job data
+  - Enhanced error handling with user-friendly messages and retry mechanisms
+- **UserManagement Component:**
+  - Created dedicated component (`frontend/src/components/admin/UserManagement.jsx`) for admin user CRUD operations
+  - Features:
+    - List all admin users with username, last login timestamp, and action buttons
+    - Create new admin user with username/password form validation
+    - Change password for existing users with separate form
+    - Delete users with confirmation prompt (prevents accidental deletion)
+  - Form states: separate UI sections for each operation with loading/error/success feedback
+  - Validation: password confirmation matching, required field checks
+  - API integration: calls `/admin/users`, `/admin/users` (POST), `/admin/users/change-password`, `/admin/users/{username}` (DELETE)
+- **Dashboard Enhancements:**
+  - Scheduler section shows real-time job status with next/last run times
+  - Job history displays target dates, execution times, status badges, and error messages
+  - Forecast coverage table with 7-day view, status indicators (complete/partial/missing), and delete actions
+  - Feature Store panel showing fallback statistics with visual warnings
+  - Performance testing interface with configurable line/hour counts
+- **Locale Support:**
+  - All navigation and redirects use dynamic locale paths (e.g., `/${locale}/admin/login`)
+  - Login/logout flows preserve selected language
+  - Admin routes support both Turkish (`/tr/admin`) and English (`/en/admin`) URLs
+
+### Notes
+- User management enables multi-admin setup without direct database access
+- Password change requires knowing target username (security consideration)
+- Delete operation protected by confirmation to prevent accidental user removal
+- Dashboard auto-refresh keeps data current without manual reload
+- All API calls include JWT token via Authorization header
+- Component structure allows easy addition of new admin features
+- Consider adding password strength requirements in future iteration
+- User creation doesn't validate username uniqueness in UI (handled by backend)
+
+## Entry · 2025-12-01 12:58 (+03)
+
+### Commit
+- **Hash:** `516d0a11ee7b80ef72e6d2e2c6c70ff2ad3af230`
+- **Message:** `feat(admin): add admin user management endpoints for CRUD operations`
+
+### Summary
+- Implemented comprehensive admin user management API endpoints enabling CRUD operations, password management, and user listing functionality with secure authentication and validation.
+
+### Details
+- **User Listing:**
+  - `GET /admin/users` - returns list of all admin users with username and last_login timestamp
+  - Excludes sensitive data (hashed passwords) from response
+  - Requires admin authentication via `get_current_user` dependency
+- **Current User Info:**
+  - `GET /admin/users/me` - returns authenticated admin's username and last_login
+  - Useful for displaying current user info in UI
+- **User Creation:**
+  - `POST /admin/users` - creates new admin user with username and password
+  - Password hashing handled by `auth.hash_password()` before storage
+  - Request body: `{username: str, password: str}`
+  - Returns created user details (excludes hashed password)
+  - Validates username uniqueness at database level (raises 500 if duplicate)
+- **Password Management:**
+  - `POST /admin/users/change-password` - updates password for existing user
+  - Request body: `{username: str, new_password: str}`
+  - Returns 404 if user not found
+  - Re-hashes password using bcrypt with 72-byte truncation for compatibility
+- **User Deletion:**
+  - `DELETE /admin/users/{username}` - removes admin user from system
+  - Returns 404 if user not found
+  - Returns 400 if attempting to delete last remaining admin (safety constraint)
+  - Checks `current_admin_count > 1` before allowing deletion
+  - Returns success message with deleted username
+- **Security Considerations:**
+  - All endpoints require JWT token authentication via `get_current_user` dependency
+  - Passwords hashed using bcrypt via passlib (version pinned for compatibility)
+  - Last admin deletion prevented to avoid lockout scenario
+  - Password truncation to 72 bytes handles bcrypt limitation
+
+### Notes
+- Endpoints enable building admin user management UI without database access
+- Consider adding username validation (length, allowed characters) in future iteration
+- Password change endpoint doesn't require old password verification (admin-only operation)
+- User creation could benefit from duplicate username check before database insert
+- Consider adding pagination for `GET /admin/users` if user count grows large
+- Deletion constraint ensures at least one admin always exists to prevent lockout
+
+## Entry · 2025-12-01 12:39 (+03)
+
+### Commit
+- **Hash:** `a40c61373a694c5bf24945355c378249f7a45595`
+- **Message:** `fix(auth): resolve bcrypt compatibility and password length issues`
+
+### Summary
+- Fixed bcrypt password hashing errors by pinning bcrypt version and adding password truncation logic to handle bcrypt's 72-byte limitation, preventing authentication failures on startup and login.
+
+### Details
+- **Bcrypt Version Pinning:**
+  - Pinned `bcrypt==4.0.1` in `requirements.txt` for compatibility with passlib
+  - Resolves version conflicts causing import errors and hashing failures
+- **Password Truncation:**
+  - Added 72-byte truncation in `verify_password()` and `hash_password()` functions
+  - Bcrypt has hard limit of 72 bytes; longer passwords cause "password cannot be longer than 72 bytes" error
+  - Truncation formula: `password[:72].encode('utf-8')` before hashing
+  - Affects both verification (login) and hashing (admin creation)
+- **Admin Password Warning:**
+  - Added startup warning when `ADMIN_PASSWORD` env var exceeds 72 characters
+  - Warns: "ADMIN_PASSWORD exceeds 72 bytes. Password will be truncated to 72 bytes for bcrypt compatibility"
+  - Helps administrators understand password length constraints during setup
+- **Error Prevention:**
+  - Prevents startup crashes when default admin user creation attempts to hash long passwords
+  - Prevents login failures when verifying passwords exceeding bcrypt limit
+  - Ensures consistent hashing behavior across all password operations
+
+### Notes
+- Bcrypt's 72-byte limit is a well-known security library constraint, not a bug
+- UTF-8 encoding means 72-byte limit ≈ 72 ASCII characters or fewer Unicode characters
+- Password truncation is safe because 72 bytes provides sufficient entropy for security
+- Affects `ADMIN_PASSWORD` env var and any admin passwords set via API
+- Consider documenting password length constraint in deployment guide
+- Alternative: could reject passwords >72 bytes instead of truncating (stricter approach)
+
+## Entry · 2025-12-01 12:31 (+03)
+
+### Commit
+- **Hash:** `a08f1efa6579a30f6c6dba343b959e8712293051`
+- **Message:** `feat(admin): enable locale-based routing and secure admin API requests`
+
+### Summary
+- Implemented locale-aware routing for admin panel and enhanced CORS configuration to support authenticated API requests with proper header exposure.
+
+### Details
+- **Locale-Based Routing:**
+  - Updated `admin/login/page.jsx` to use `useParams()` for dynamic locale extraction
+  - Login success redirects to `/${locale}/admin` instead of hardcoded `/admin`
+  - Logout redirects to `/${locale}/admin/login` preserving user's language preference
+  - ProtectedRoute component now handles locale-aware redirect URLs
+- **Secure API Requests:**
+  - Introduced `getAuthHeaders()` utility function to retrieve JWT token from localStorage
+  - Updated all Axios requests in admin components to include Authorization header
+  - Header format: `{Authorization: 'Bearer {token}'}`
+  - Enables secure communication with protected admin endpoints
+- **CORS Enhancement:**
+  - Updated CORS middleware in `src/api/main.py` with `allow_origin_regex` pattern
+  - Regex: `r"^https?://localhost:3000$"` matches both http and https development URLs
+  - Added `expose_headers=["*"]` to allow frontend access to custom response headers
+  - Enables proper handling of authentication tokens and custom API headers
+- **AuthContext Updates:**
+  - Modified `login()` function to include locale parameter
+  - Post-login navigation preserves language selection
+  - Enhanced logout flow with locale-aware redirect
+
+### Notes
+- Locale support enables seamless Turkish/English admin panel experience
+- Token-based authentication secures all admin API operations
+- CORS regex pattern provides flexibility for local development (http/https)
+- `expose_headers=["*"]` needed for Authorization header visibility in browser
+- Consider adding token refresh mechanism for long admin sessions
+- Future: implement role-based access control for different admin permission levels
+
+## Entry · 2025-12-01 12:24 (+03) (Continued from previous)
+
+### Commit
+- **Hash:** `a031ef3135a63548c0f78132068f2183586ebad4`
+- **Message:** `feat(admin): add JWT-based admin authentication with UI and API integration`
+
+### Summary
+- Implemented comprehensive JWT-based authentication system for admin access, including secure login/logout flows, password hashing, token management, and React authentication context with protected routes.
+
+### Details
+- **Backend Authentication:**
+  - Created `src/api/auth.py` module (102 lines) with JWT token generation and password hashing logic
+  - Token configuration: HS256 algorithm, 24-hour expiration, secret key from `ADMIN_SECRET_KEY` env var
+  - Password hashing: bcrypt via passlib with 12 rounds, UTF-8 encoding
+  - `create_access_token()`: generates JWT with username claim and expiration timestamp
+  - `verify_password()`: compares plaintext password against bcrypt hash
+  - `hash_password()`: creates secure bcrypt hash from plaintext password
+  - `get_current_user()`: FastAPI dependency for protected routes, validates JWT token and returns authenticated user
+- **Database Schema:**
+  - Added `admin_users` table to `src/api/models.py` with columns: id (PK), username (unique), hashed_password, created_at, last_login
+  - Created migration: `migrations/create_admin_users_table.sql` with idempotent CREATE TABLE IF NOT EXISTS
+  - Default admin user creation on startup: username from `ADMIN_USERNAME` env var (default: "admin"), password from `ADMIN_PASSWORD`
+  - Last login timestamp updated on each successful login
+- **Admin API Endpoints:**
+  - `POST /admin/login` - accepts `{username, password}`, returns `{access_token, token_type: "bearer"}`, updates last_login
+  - Protected admin endpoints now use `current_user: AdminUser = Depends(get_current_user)` to require authentication
+  - Returns 401 Unauthorized if token invalid, expired, or missing
+- **Frontend Authentication:**
+  - Created `AuthContext` (`frontend/src/contexts/AuthContext.jsx`) for global admin session management
+  - Context provides: `adminUser` state, `login(username, password)`, `logout()`, `isLoading` state
+  - Stores JWT token in localStorage (`adminToken` key) for persistence across page reloads
+  - Validates stored token on initial load via `GET /admin/users/me` endpoint
+  - Clears token and user state on logout
+- **Login Page:**
+  - Created `frontend/src/app/[locale]/admin/login/page.jsx` with form validation
+  - Form fields: username (required), password (required)
+  - Displays error messages for failed login attempts
+  - Redirects to `/admin` dashboard on successful authentication
+  - Stores credentials in AuthContext and localStorage
+- **Protected Routes:**
+  - Created `ProtectedRoute` component (`frontend/src/components/admin/ProtectedRoute.jsx`)
+  - Wraps admin pages to require authentication before rendering
+  - Redirects unauthenticated users to `/admin/login`
+  - Shows loading spinner while checking authentication status
+- **Layout Integration:**
+  - Updated `frontend/src/app/[locale]/layout.js` to wrap app with `<AuthProvider>`
+  - Makes authentication context available to all components
+- **Dependencies:**
+  - Added to `requirements.txt`:
+    - `python-jose[cryptography]==3.3.0` - JWT token encoding/decoding
+    - `passlib[bcrypt]==1.7.4` - password hashing with bcrypt
+    - `python-multipart==0.0.6` - form data parsing for login endpoint
+
+### Notes
+- Token expiration set to 24 hours balances security and usability
+- Default admin account created automatically on first startup for initial access
+- bcrypt provides future-proof password security with adjustable cost factor
+- Token stored in localStorage (consider httpOnly cookie for enhanced security in production)
+- Protected route pattern easily extensible to other admin pages
+- Consider adding token refresh mechanism for long admin sessions
+- Future enhancement: role-based access control (RBAC) for different admin permission levels
+- Security: admin endpoints must not be exposed without HTTPS in production
+
+## Entry · 2025-11-29 20:43 (+03)
+
+### Commit
+- **Hash:** `2b243c3dcf1914172e705beee6d2e727074934e7`
+- **Message:** `refactor(api): update database module import path for consistency`
+
+### Summary
+- Fixed import path in `src/api/auth.py` to use relative import for database module, improving code organization and consistency with project structure.
+
+### Details
+- Changed import from `from database import SessionLocal` to `from .database import SessionLocal`
+- Relative import ensures proper module resolution within `src/api/` package
+- Aligns with Python package best practices for intra-package imports
+
+### Notes
+- Minor refactor with no functional changes
+- Improves maintainability and IDE autocomplete support
+- Part of cleanup after admin authentication implementation
 
 ## Entry · 2025-11-29 19:55 (+03)
 
