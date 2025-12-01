@@ -543,3 +543,43 @@ def delete_admin_user(
     print(f"🗑️  Admin user '{username}' deleted by '{current_user.username}'")
     
     return {"message": f"Admin user '{username}' deleted successfully"}
+
+
+@router.delete("/admin/database/cleanup-all")
+def cleanup_all_database(
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """
+    DANGER: Delete all forecast data and job execution history from database.
+    Preserves admin users and transport line metadata.
+    Requires admin authentication.
+    """
+    try:
+        # Count records before deletion
+        forecast_count = db.query(DailyForecast).count()
+        job_count = db.query(JobExecution).count()
+        
+        # Delete all forecasts
+        db.query(DailyForecast).delete()
+        
+        # Delete all job execution history
+        db.query(JobExecution).delete()
+        
+        db.commit()
+        
+        print(f"🗑️  Database cleanup by '{current_user.username}': {forecast_count} forecasts + {job_count} jobs deleted")
+        
+        return {
+            "message": "Database cleaned successfully",
+            "deleted_forecasts": forecast_count,
+            "deleted_jobs": job_count
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Database cleanup failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database cleanup failed: {str(e)}"
+        )
