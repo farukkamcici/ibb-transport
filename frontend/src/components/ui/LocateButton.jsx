@@ -7,7 +7,7 @@ import { Navigation, LoaderCircle } from 'lucide-react';
 
 const LocateButton = () => {
   const map = useMap();
-  const { setUserLocation, setAlertMessage } = useAppStore();
+  const { setUserLocation, setAlertMessage, isPanelOpen } = useAppStore();
   const [loading, setLoading] = useState(false);
 
   const handleLocate = () => {
@@ -42,7 +42,10 @@ const LocateButton = () => {
   };
 
   return (
-    <div className="leaflet-bottom leaflet-right" style={{ zIndex: 1000, bottom: '5rem' }}>
+    <div 
+      className="leaflet-bottom leaflet-right transition-all duration-300" 
+      style={{ zIndex: 1000, bottom: isPanelOpen ? '12rem' : '5rem' }}
+    >
       <div className="leaflet-control">
         <button
           onClick={handleLocate}

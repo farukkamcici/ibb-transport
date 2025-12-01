@@ -1,11 +1,11 @@
 'use client';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Polyline, CircleMarker, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import useAppStore from '@/store/useAppStore';
 import LocateButton from '@/components/ui/LocateButton';
 import { divIcon } from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import useRoutePolyline from '@/hooks/useRoutePolyline';
 
 const CENTER = [41.0082, 28.9784]; // Istanbul coordinates
@@ -37,11 +37,19 @@ function MapController({ routeCoordinates }) {
 
 export default function MapView() {
   const { userLocation, selectedLine, selectedDirection, showRoute } = useAppStore();
-  const { getPolyline } = useRoutePolyline();
+  const { getPolyline, getRouteStops } = useRoutePolyline();
 
-  const routeCoordinates = showRoute && selectedLine 
-    ? getPolyline(selectedLine.id, selectedDirection) 
-    : [];
+  const routeCoordinates = useMemo(() => {
+    return showRoute && selectedLine 
+      ? getPolyline(selectedLine.id, selectedDirection) 
+      : [];
+  }, [showRoute, selectedLine, selectedDirection, getPolyline]);
+
+  const routeStops = useMemo(() => {
+    return showRoute && selectedLine 
+      ? getRouteStops(selectedLine.id, selectedDirection) 
+      : [];
+  }, [showRoute, selectedLine, selectedDirection, getRouteStops]);
 
   return (
     <MapContainer
@@ -69,7 +77,79 @@ export default function MapView() {
             color="#3b82f6"
             weight={4}
             opacity={0.7}
+            lineCap="round"
+            lineJoin="round"
           />
+          
+          {routeStops.map((stop, index) => {
+            const isFirstStop = index === 0;
+            const isLastStop = index === routeStops.length - 1;
+            
+            if (isFirstStop) {
+              return (
+                <CircleMarker
+                  key={stop.code}
+                  center={[stop.lat, stop.lng]}
+                  radius={6}
+                  pathOptions={{
+                    color: '#10b981',
+                    fillColor: '#10b981',
+                    fillOpacity: 1,
+                    weight: 2
+                  }}
+                >
+                  <Tooltip direction="top" offset={[0, -5]} opacity={0.9}>
+                    <div className="text-xs font-medium">
+                      <div className="font-bold text-green-600">Start</div>
+                      <div>{stop.name}</div>
+                    </div>
+                  </Tooltip>
+                </CircleMarker>
+              );
+            }
+            
+            if (isLastStop) {
+              return (
+                <CircleMarker
+                  key={stop.code}
+                  center={[stop.lat, stop.lng]}
+                  radius={6}
+                  pathOptions={{
+                    color: '#ef4444',
+                    fillColor: '#ef4444',
+                    fillOpacity: 1,
+                    weight: 2
+                  }}
+                >
+                  <Tooltip direction="top" offset={[0, -5]} opacity={0.9}>
+                    <div className="text-xs font-medium">
+                      <div className="font-bold text-red-600">End</div>
+                      <div>{stop.name}</div>
+                    </div>
+                  </Tooltip>
+                </CircleMarker>
+              );
+            }
+            
+            return (
+              <CircleMarker
+                key={stop.code}
+                center={[stop.lat, stop.lng]}
+                radius={4}
+                pathOptions={{
+                  color: '#3b82f6',
+                  fillColor: '#ffffff',
+                  fillOpacity: 1,
+                  weight: 2
+                }}
+              >
+                <Tooltip direction="top" offset={[0, -5]} opacity={0.9}>
+                  <div className="text-xs font-medium">{stop.name}</div>
+                </Tooltip>
+              </CircleMarker>
+            );
+          })}
+          
           <MapController routeCoordinates={routeCoordinates} />
         </>
       )}

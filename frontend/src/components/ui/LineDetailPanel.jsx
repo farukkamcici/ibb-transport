@@ -15,7 +15,8 @@ import {
   Route, 
   Star,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  ArrowLeftRight
 } from 'lucide-react';
 import TimeSlider from './TimeSlider';
 import CrowdChart from './CrowdChart';
@@ -51,7 +52,7 @@ export default function LineDetailPanel() {
     setShowRoute
   } = useAppStore();
   
-  const { getAvailableDirections, getPolyline } = useRoutePolyline();
+  const { getAvailableDirections, getPolyline, getDirectionInfo, getRouteStops } = useRoutePolyline();
   const [forecastData, setForecastData] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -107,6 +108,7 @@ export default function LineDetailPanel() {
   const transportType = metadata ? getTransportType(metadata.transport_type_id) : null;
   const isFav = isFavorite(selectedLine.id);
   const availableDirections = getAvailableDirections(selectedLine.id);
+  const directionInfo = getDirectionInfo(selectedLine.id);
   const hasRouteData = availableDirections.length > 0 && getPolyline(selectedLine.id, selectedDirection).length > 0;
 
   const vibrate = (pattern) => {
@@ -251,24 +253,22 @@ export default function LineDetailPanel() {
               {showRoute && availableDirections.length > 1 && (
                 <div className="flex items-center gap-2">
                   <MapPin size={12} className="text-primary shrink-0 animate-pulse" />
-                  <div className="flex gap-1.5 flex-1">
-                    {availableDirections.map(dir => (
-                      <button
-                        key={dir}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDirectionChange(dir);
-                        }}
-                        className={cn(
-                          "flex-1 py-1 rounded-md text-xs font-medium transition-colors",
-                          selectedDirection === dir
-                            ? "bg-primary text-white"
-                            : "bg-background/50 text-gray-400 hover:bg-white/5"
-                        )}
-                      >
-                        {dir === 'G' ? 'Gidiş' : dir === 'D' ? 'Dönüş' : dir}
-                      </button>
-                    ))}
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="text-xs text-gray-300 truncate flex-1">
+                      {directionInfo[selectedDirection]?.label || (selectedDirection === 'G' ? 'Gidiş' : selectedDirection === 'D' ? 'Dönüş' : selectedDirection)}
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const currentIndex = availableDirections.indexOf(selectedDirection);
+                        const nextIndex = (currentIndex + 1) % availableDirections.length;
+                        handleDirectionChange(availableDirections[nextIndex]);
+                      }}
+                      className="shrink-0 p-1 rounded-md bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                      title="Yön değiştir"
+                    >
+                      <ArrowLeftRight size={14} />
+                    </button>
                   </div>
                 </div>
               )}
@@ -401,20 +401,29 @@ export default function LineDetailPanel() {
                   
                   {showRoute && availableDirections.length > 1 && (
                     <div className="flex gap-2 mt-2">
-                      {availableDirections.map(dir => (
-                        <button
-                          key={dir}
-                          onClick={() => setSelectedDirection(dir)}
-                          className={cn(
-                            "flex-1 py-1.5 rounded-lg text-xs font-medium transition-colors",
-                            selectedDirection === dir
-                              ? "bg-primary/20 text-primary border border-primary/30"
-                              : "bg-background border border-white/10 text-gray-400 hover:bg-white/5"
-                          )}
-                        >
-                          {dir === 'G' ? 'Gidiş' : dir === 'D' ? 'Dönüş' : dir}
-                        </button>
-                      ))}
+                      {availableDirections.map(dir => {
+                        const info = directionInfo[dir];
+                        const label = info?.label || (dir === 'G' ? 'Gidiş' : dir === 'D' ? 'Dönüş' : dir);
+                        
+                        return (
+                          <button
+                            key={dir}
+                            onClick={() => {
+                              setSelectedDirection(dir);
+                              vibrate(5);
+                            }}
+                            className={cn(
+                              "flex-1 py-1.5 px-2 rounded-lg text-xs font-medium transition-colors truncate",
+                              selectedDirection === dir
+                                ? "bg-primary/20 text-primary border border-primary/30"
+                                : "bg-background border border-white/10 text-gray-400 hover:bg-white/5"
+                            )}
+                            title={label}
+                          >
+                            {label}
+                          </button>
+                        );
+                      })}
                     </div>
                   )}
                 </div>

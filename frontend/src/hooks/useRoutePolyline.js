@@ -53,7 +53,7 @@ export default function useRoutePolyline() {
     loadingPromise.catch(() => {});
   }, []);
 
-  const getPolyline = useCallback((lineCode, direction = 'G') => {
+  const getRouteStops = useCallback((lineCode, direction = 'G') => {
     if (!stopsCache || !routesCache) {
       return [];
     }
@@ -68,15 +68,74 @@ export default function useRoutePolyline() {
       return [];
     }
 
-    const coordinates = [];
+    const stops = [];
     for (const stopCode of stopCodes) {
       const stop = stopsCache[stopCode];
       if (stop && stop.lat && stop.lng) {
-        coordinates.push([stop.lat, stop.lng]);
+        stops.push({
+          code: stopCode,
+          name: stop.name || 'Unknown Stop',
+          lat: stop.lat,
+          lng: stop.lng,
+          district: stop.district
+        });
       }
     }
 
-    return coordinates;
+    return stops;
+  }, []);
+
+  const getPolyline = useCallback((lineCode, direction = 'G') => {
+    const stops = getRouteStops(lineCode, direction);
+    return stops.map(stop => [stop.lat, stop.lng]);
+  }, [getRouteStops]);
+
+  const getDirectionInfo = useCallback((lineCode) => {
+    if (!stopsCache || !routesCache) {
+      return {};
+    }
+
+    const lineRoutes = routesCache[lineCode];
+    if (!lineRoutes) {
+      return {};
+    }
+
+    const directions = {};
+
+    Object.keys(lineRoutes).forEach(dir => {
+      const stopCodes = lineRoutes[dir];
+      if (!stopCodes || stopCodes.length === 0) {
+        return;
+      }
+
+      const firstStopCode = stopCodes[0];
+      const lastStopCode = stopCodes[stopCodes.length - 1];
+
+      const firstStop = stopsCache[firstStopCode];
+      const lastStop = stopsCache[lastStopCode];
+
+      const firstStopName = firstStop?.name || 'Unknown';
+      const lastStopName = lastStop?.name || 'Unknown';
+
+      const formatStopName = (name) => {
+        return name
+          .toUpperCase()
+          .replace(/\s+MAH\.?$/i, '')
+          .replace(/\s+CAD\.?$/i, '')
+          .replace(/\s+SOK\.?$/i, '')
+          .trim();
+      };
+
+      directions[dir] = {
+        label: `${formatStopName(lastStopName)} Yönü`,
+        firstStop: firstStopName,
+        lastStop: lastStopName,
+        firstStopCode,
+        lastStopCode
+      };
+    });
+
+    return directions;
   }, []);
 
   const getAvailableDirections = useCallback((lineCode) => {
@@ -94,6 +153,8 @@ export default function useRoutePolyline() {
 
   return {
     getPolyline,
+    getRouteStops,
+    getDirectionInfo,
     getAvailableDirections,
     isLoading,
     error
