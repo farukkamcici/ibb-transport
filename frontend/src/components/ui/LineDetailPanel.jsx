@@ -197,7 +197,7 @@ export default function LineDetailPanel() {
             <div className="w-12 h-1 bg-gray-600 rounded-full md:hidden" />
             <div className="hidden md:flex items-center gap-2 text-xs text-gray-400">
               {isMinimized ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-              <span>{isMinimized ? 'Expand' : 'Minimize'}</span>
+              <span>{isMinimized ? t('expand') : t('minimize')}</span>
             </div>
           </div>
 
@@ -234,7 +234,7 @@ export default function LineDetailPanel() {
                       "rounded-full bg-background p-1.5 hover:bg-white/10 transition-colors",
                       isFav ? "text-yellow-400" : "text-gray-400"
                     )}
-                    aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+                    aria-label={isFav ? t('removeFromFavorites') : t('addToFavorites')}
                   >
                     <Star size={16} fill={isFav ? "currentColor" : "none"} />
                   </button>
@@ -265,7 +265,7 @@ export default function LineDetailPanel() {
                         handleDirectionChange(availableDirections[nextIndex]);
                       }}
                       className="shrink-0 p-1 rounded-md bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
-                      title="Yön değiştir"
+                      title={t('changeDirection')}
                     >
                       <ArrowLeftRight size={14} />
                     </button>
@@ -296,7 +296,7 @@ export default function LineDetailPanel() {
                         "rounded-full bg-background p-1.5 hover:bg-white/10 transition-colors",
                         isFav ? "text-yellow-400" : "text-gray-400"
                       )}
-                      aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
+                      aria-label={isFav ? t('removeFromFavorites') : t('addToFavorites')}
                     >
                       <Star size={16} fill={isFav ? "currentColor" : "none"} />
                     </button>
@@ -345,7 +345,7 @@ export default function LineDetailPanel() {
                       
                       <div>
                         <div className="flex justify-between text-xs text-gray-400 mb-1">
-                          <span>Capacity</span>
+                          <span>{t('capacity')}</span>
                           <span className="flex items-center gap-1">
                             <Users size={10} /> 
                             {currentHourData.max_capacity.toLocaleString()}
@@ -362,9 +362,9 @@ export default function LineDetailPanel() {
                       <div className="pt-2 border-t border-white/5 flex items-start gap-1.5 text-xs text-gray-400">
                         <Info size={12} className="shrink-0 mt-0.5" />
                         <p className="leading-tight">
-                          Predicted: <span className="font-semibold text-secondary">
+                          {t('predicted')}: <span className="font-semibold text-secondary">
                             {Math.round(currentHourData.predicted_value).toLocaleString()}
-                          </span> passengers
+                          </span> {t('passengers')}
                         </p>
                       </div>
                     </div>
@@ -377,7 +377,7 @@ export default function LineDetailPanel() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <MapPin size={14} className="text-secondary" />
-                      <p className="text-xs font-medium text-gray-300">Route View</p>
+                      <p className="text-xs font-medium text-gray-300">{t('routeView')}</p>
                     </div>
                     <button
                       onClick={() => {
@@ -393,9 +393,9 @@ export default function LineDetailPanel() {
                           ? "bg-primary text-white" 
                           : "bg-background border border-white/10 text-gray-400 hover:bg-white/5"
                       )}
-                      title={!hasRouteData ? "No route data available" : ""}
+                      title={!hasRouteData ? t('noRouteData') : ""}
                     >
-                      {showRoute ? 'Hide' : 'Show'}
+                      {showRoute ? t('hide') : t('show')}
                     </button>
                   </div>
                   
