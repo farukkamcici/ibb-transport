@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List
+from typing import List, Dict, Any
 from pydantic import BaseModel
 from datetime import date, timedelta, datetime
 import lightgbm as lgb
@@ -10,6 +10,7 @@ from ..db import get_db
 from ..state import get_model, get_feature_store
 from ..services.batch_forecast import run_daily_forecast_job
 from ..services.store import FeatureStore
+from ..services.route_service import route_service
 from ..models import JobExecution, TransportLine, DailyForecast, AdminUser
 from ..auth import authenticate_user, create_access_token, get_current_user, get_password_hash
 from .. import scheduler as sched
@@ -582,4 +583,44 @@ def cleanup_all_database(
         raise HTTPException(
             status_code=500,
             detail=f"Database cleanup failed: {str(e)}"
+        )
+
+
+@router.get("/admin/route-service/stats", response_model=Dict[str, Any])
+def get_route_service_stats(
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """
+    Get statistics about loaded route shapes in memory.
+    
+    Returns information about:
+    - Total lines with route data
+    - Total directions
+    - Total coordinate points
+    - Average points per direction
+    - Data version
+    """
+    return route_service.get_stats()
+
+
+@router.post("/admin/route-service/reload")
+def reload_route_service(
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """
+    Force reload of route shape data from file.
+    Useful for development or when data file is updated.
+    """
+    success = route_service.reload_data()
+    
+    if success:
+        stats = route_service.get_stats()
+        return {
+            "message": "Route shapes reloaded successfully",
+            "stats": stats
+        }
+    else:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to reload route shapes. Check server logs for details."
         )

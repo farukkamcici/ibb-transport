@@ -1,8 +1,12 @@
 'use client';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { apiClient } from '../lib/api';
 
 let stopsCache = null;
 let routesCache = null;
+const shapesCache = new Map();
+const pendingRequests = new Map();
+const MAX_CACHE_SIZE = 100;
 let loadingPromise = null;
 
 export default function useRoutePolyline() {
@@ -25,7 +29,7 @@ export default function useRoutePolyline() {
       try {
         const [stopsRes, routesRes] = await Promise.all([
           fetch('/data/stops_geometry.json'),
-          fetch('/data/line_routes.json')
+          fetch('/data/line_routes.json'),
         ]);
 
         if (!stopsRes.ok || !routesRes.ok) {
@@ -34,11 +38,16 @@ export default function useRoutePolyline() {
 
         const [stopsData, routesData] = await Promise.all([
           stopsRes.json(),
-          routesRes.json()
+          routesRes.json(),
         ]);
 
         stopsCache = stopsData.stops;
         routesCache = routesData.routes;
+
+        console.log(`Route data loaded successfully:
+  - Stops: ${Object.keys(stopsCache).length}
+  - Routes: ${Object.keys(routesCache).length}`);
+
       } catch (err) {
         console.error('Error loading route data:', err);
         setError(err.message);
@@ -85,9 +94,60 @@ export default function useRoutePolyline() {
     return stops;
   }, []);
 
-  const getPolyline = useCallback((lineCode, direction = 'G') => {
-    const stops = getRouteStops(lineCode, direction);
-    return stops.map(stop => [stop.lat, stop.lng]);
+  const getPolyline = useCallback(async (lineCode, direction = 'G') => {
+    if (!stopsCache || !routesCache) {
+      return [];
+    }
+
+    const cacheKey = `${lineCode}-${direction}`;
+    
+    if (shapesCache.has(cacheKey)) {
+      return shapesCache.get(cacheKey);
+    }
+
+    if (pendingRequests.has(cacheKey)) {
+      return pendingRequests.get(cacheKey);
+    }
+
+    const requestPromise = (async () => {
+      try {
+        const response = await apiClient.get(`/lines/${lineCode}/route`);
+        const routeData = response.data;
+        
+        if (!routeData || typeof routeData !== 'object') {
+          throw new Error('Invalid route data format');
+        }
+
+        const directionCoords = routeData[direction];
+        
+        if (!directionCoords || !Array.isArray(directionCoords) || directionCoords.length === 0) {
+          console.warn(`No route data for ${lineCode} direction ${direction}, falling back to stops`);
+          const stops = getRouteStops(lineCode, direction);
+          const fallbackCoords = stops.map(stop => [stop.lat, stop.lng]);
+          shapesCache.set(cacheKey, fallbackCoords);
+          return fallbackCoords;
+        }
+
+        if (shapesCache.size >= MAX_CACHE_SIZE) {
+          const firstKey = shapesCache.keys().next().value;
+          shapesCache.delete(firstKey);
+        }
+
+        shapesCache.set(cacheKey, directionCoords);
+        return directionCoords;
+        
+      } catch (error) {
+        console.warn(`Failed to fetch route shape for ${lineCode}-${direction} from API, falling back to stops.`, error);
+        const stops = getRouteStops(lineCode, direction);
+        const fallbackCoords = stops.map(stop => [stop.lat, stop.lng]);
+        return fallbackCoords;
+      } finally {
+        pendingRequests.delete(cacheKey);
+      }
+    })();
+
+    pendingRequests.set(cacheKey, requestPromise);
+    return requestPromise;
   }, [getRouteStops]);
 
   const getDirectionInfo = useCallback((lineCode) => {

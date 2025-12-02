@@ -5,7 +5,7 @@ import useAppStore from '@/store/useAppStore';
 import LocateButton from '@/components/ui/LocateButton';
 import { divIcon } from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import useRoutePolyline from '@/hooks/useRoutePolyline';
 
 const CENTER = [41.0082, 28.9784]; // Istanbul coordinates
@@ -38,11 +38,24 @@ function MapController({ routeCoordinates }) {
 export default function MapView() {
   const { userLocation, selectedLine, selectedDirection, showRoute } = useAppStore();
   const { getPolyline, getRouteStops } = useRoutePolyline();
+  const [routeCoordinates, setRouteCoordinates] = useState([]);
 
-  const routeCoordinates = useMemo(() => {
-    return showRoute && selectedLine 
-      ? getPolyline(selectedLine.id, selectedDirection) 
-      : [];
+  useEffect(() => {
+    let isActive = true;
+    if (showRoute && selectedLine) {
+      const fetchPolyline = async () => {
+        const polyline = await getPolyline(selectedLine.id, selectedDirection);
+        if (isActive) {
+          setRouteCoordinates(polyline);
+        }
+      };
+      fetchPolyline();
+    }
+
+    return () => {
+      isActive = false;
+      setRouteCoordinates([]);
+    };
   }, [showRoute, selectedLine, selectedDirection, getPolyline]);
 
   const routeStops = useMemo(() => {

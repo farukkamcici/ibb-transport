@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import case, or_, func
-from typing import List
+from typing import List, Dict
 from ..db import get_db
 from ..models import TransportLine
+from ..services.route_service import route_service
 from pydantic import BaseModel
 import unicodedata
 
@@ -107,3 +108,35 @@ def get_line_metadata(line_name: str, db: Session = Depends(get_db)):
         )
     
     return line
+
+
+@router.get("/lines/{line_code}/route", response_model=Dict[str, List[List[float]]])
+def get_line_route(line_code: str):
+    """
+    Retrieves route shape geometry for a specific transport line.
+    
+    Returns coordinate arrays for each direction (G=Gidiş/Forward, D=Dönüş/Return).
+    Data is served from in-memory cache for fast access.
+    
+    Args:
+        line_code: Transport line code (e.g., "76B", "19F", "M2")
+    
+    Returns:
+        Dictionary with direction keys mapping to coordinate arrays:
+        {
+            "G": [[lat, lng], [lat, lng], ...],
+            "D": [[lat, lng], [lat, lng], ...]
+        }
+        Returns empty dict if route not found.
+    
+    Example:
+        GET /lines/76B/route
+        {
+            "G": [[41.0082, 28.9784], [41.0085, 28.9790], ...],
+            "D": [[41.0086, 28.9795], [41.0089, 28.9800], ...]
+        }
+    """
+    route_data = route_service.get_route(line_code)
+    
+    # Return empty dict if not found (not a 404, as the line may exist without route data)
+    return route_data

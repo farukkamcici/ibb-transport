@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from .db import SessionLocal
 from .routers import admin, forecast, lines, nowcast
 from .services.store import FeatureStore
+from .services.route_service import route_service
 from .utils.init_db import init_db
 from .state import AppState
 from .scheduler import start_scheduler, shutdown_scheduler
@@ -31,6 +32,11 @@ async def lifespan(app: FastAPI):
     
     # Initialize the Feature Store and assign to AppState
     AppState.store = FeatureStore()
+    
+    # Load route shapes into memory
+    print("Loading route shape data...")
+    route_service.load_data()
+    print("✅ Route shapes ready")
     
     # Start the cron job scheduler
     print("Starting APScheduler for cron jobs...")
