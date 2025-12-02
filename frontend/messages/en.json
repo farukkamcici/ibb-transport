@@ -39,6 +39,17 @@
       "Unknown": "Unknown"
     }
   },
+  "schedule": {
+    "upcomingDepartures": "Upcoming Departures",
+    "noScheduleAvailable": "Schedule not available",
+    "noMoreTrips": "No more trips today",
+    "minutes": "min",
+    "hours": "hr",
+    "seeFullSchedule": "See Full Schedule",
+    "fullSchedule": "Full Schedule",
+    "outbound": "Outbound",
+    "inbound": "Inbound"
+  },
   "transportTypes": {
     "bus": "Bus",
     "metro": "Metro",

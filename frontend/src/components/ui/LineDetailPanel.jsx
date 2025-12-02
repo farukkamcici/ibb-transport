@@ -20,6 +20,8 @@ import {
 } from 'lucide-react';
 import TimeSlider from './TimeSlider';
 import CrowdChart from './CrowdChart';
+import ScheduleWidget from '../line-detail/ScheduleWidget';
+import ScheduleModal from '../line-detail/ScheduleModal';
 import { cn } from '@/lib/utils';
 import { getForecast } from '@/lib/api';
 import { getTransportType } from '@/lib/transportTypes';
@@ -59,6 +61,7 @@ export default function LineDetailPanel() {
   const [isMinimized, setIsMinimized] = useState(false);
   const [isChartExpanded, setIsChartExpanded] = useState(false);
   const [hasRouteData, setHasRouteData] = useState(false);
+  const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 
   useEffect(() => {
     if (isPanelOpen && selectedLine) {
@@ -209,12 +212,12 @@ export default function LineDetailPanel() {
           isDesktop && !isMinimized && "max-h-[calc(100vh-6rem)]"
         )}
         style={!isDesktop ? {
-          height: isMinimized ? 'auto' : (isChartExpanded ? '75vh' : '55vh'),
+          height: isMinimized ? 'auto' : (isChartExpanded ? '75vh' : '60vh'),
           transition: 'height 0.3s ease-out'
         } : {}}
       >
         <div className={cn(
-          "flex flex-col",
+          "flex flex-col h-full",
           isMinimized ? "pb-3" : "pb-4"
         )}>
           
@@ -457,54 +460,82 @@ export default function LineDetailPanel() {
                 </div>
               </div>
 
-              <div className="overflow-y-auto flex-1 px-4 space-y-3 pb-6">
+              <div className="overflow-y-auto flex-1 px-4 space-y-3 pb-24">
                 <TimeSlider />
 
-                <div className="rounded-xl bg-background border border-white/5 overflow-hidden">
-                  <button
-                    onClick={() => {
-                      setIsChartExpanded(!isChartExpanded);
-                      vibrate(5);
-                    }}
-                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/5 transition-colors"
-                  >
-                    <p className="text-xs font-medium text-gray-400">
-                      {t('forecast24h')}
-                    </p>
-                    {isChartExpanded ? (
-                      <ChevronUp size={14} className="text-gray-400" />
-                    ) : (
-                      <ChevronDown size={14} className="text-gray-400" />
-                    )}
-                  </button>
-                  
-                  <AnimatePresence>
-                    {(isChartExpanded || isDesktop) && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="overflow-hidden"
-                      >
-                        <div className="px-3 pb-3 h-44">
-                          {loading ? (
-                            <div className="h-full flex items-center justify-center">
-                              <Loader className="animate-spin text-primary" size={20} />
-                            </div>
-                          ) : (
-                            <CrowdChart data={forecastData} />
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
+                <div className={cn(
+                  "grid gap-3",
+                  isDesktop ? "md:grid-cols-[1fr_300px]" : "grid-cols-1"
+                )}>
+                  <div className="rounded-xl bg-background border border-white/5 overflow-hidden">
+                    <button
+                      onClick={() => {
+                        setIsChartExpanded(!isChartExpanded);
+                        vibrate(5);
+                      }}
+                      className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/5 transition-colors"
+                    >
+                      <p className="text-xs font-medium text-gray-400">
+                        {t('forecast24h')}
+                      </p>
+                      {isChartExpanded ? (
+                        <ChevronUp size={14} className="text-gray-400" />
+                      ) : (
+                        <ChevronDown size={14} className="text-gray-400" />
+                      )}
+                    </button>
+                    
+                    <AnimatePresence>
+                      {(isChartExpanded || isDesktop) && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.2 }}
+                          className="overflow-hidden"
+                        >
+                          <div className="px-3 pb-3 h-44">
+                            {loading ? (
+                              <div className="h-full flex items-center justify-center">
+                                <Loader className="animate-spin text-primary" size={20} />
+                              </div>
+                            ) : (
+                              <CrowdChart data={forecastData} />
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+
+                  {isDesktop && (
+                    <ScheduleWidget 
+                      lineCode={selectedLine.id} 
+                      direction={selectedDirection}
+                      onShowFullSchedule={() => setIsScheduleModalOpen(true)}
+                    />
+                  )}
                 </div>
+
+                {!isDesktop && (
+                  <ScheduleWidget 
+                    lineCode={selectedLine.id} 
+                    direction={selectedDirection}
+                    onShowFullSchedule={() => setIsScheduleModalOpen(true)}
+                  />
+                )}
               </div>
             </>
           )}
         </div>
       </motion.div>
+
+      <ScheduleModal 
+        lineCode={selectedLine.id}
+        isOpen={isScheduleModalOpen}
+        onClose={() => setIsScheduleModalOpen(false)}
+        initialDirection={selectedDirection}
+      />
     </>
   );
 }

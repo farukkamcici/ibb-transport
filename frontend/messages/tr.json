@@ -39,6 +39,17 @@
       "Unknown": "Bilinmiyor"
     }
   },
+  "schedule": {
+    "upcomingDepartures": "Yaklaşan Seferler",
+    "noScheduleAvailable": "Sefer bilgisi mevcut değil",
+    "noMoreTrips": "Bugün başka sefer yok",
+    "minutes": "dk",
+    "hours": "sa",
+    "seeFullSchedule": "Tüm Seferleri Gör",
+    "fullSchedule": "Tüm Sefer Saatleri",
+    "outbound": "Gidiş",
+    "inbound": "Dönüş"
+  },
   "transportTypes": {
     "bus": "Otobüs",
     "metro": "Metro",
