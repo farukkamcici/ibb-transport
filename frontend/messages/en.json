@@ -41,6 +41,8 @@
   },
   "schedule": {
     "upcomingDepartures": "Upcoming Departures",
+    "nextDeparture": "Next Departure",
+    "moreDepartures": "more departures",
     "noScheduleAvailable": "Schedule not available",
     "noMoreTrips": "No more trips today",
     "minutes": "min",

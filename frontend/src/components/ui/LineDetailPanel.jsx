@@ -307,9 +307,9 @@ export default function LineDetailPanel() {
           ) : (
             <>
               <div className="px-4 pt-3 pb-2">
-                <div className="flex items-start justify-between mb-2">
+                <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2">
                       <span className="rounded-lg bg-primary px-2.5 py-1 text-sm font-bold text-white shrink-0">
                         {selectedLine.id}
                       </span>
@@ -340,66 +340,77 @@ export default function LineDetailPanel() {
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-background p-3 border border-white/5">
-                  {loading && (
-                    <div className="flex items-center justify-center py-4">
-                      <Loader className="animate-spin text-primary" size={20} />
-                    </div>
-                  )}
-                  
-                  {error && !loading && (
-                    <div className="flex items-center justify-center gap-2 text-red-400 py-4">
-                      <ServerCrash size={16} />
-                      <span className="text-xs">{error}</span>
-                    </div>
-                  )}
-                  
-                  {currentHourData && status && !loading && !error && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-xs text-gray-400 mb-0.5">
-                            {t('estimatedCrowd', { hour: selectedHour })}
-                          </p>
-                          <h3 className={cn("text-lg font-bold", status.color)}>
-                            {t(`crowdLevels.${crowdLevel}`)}
-                          </h3>
-                        </div>
-                        <div className={cn(
-                          "rounded-lg px-3 py-2 border text-xs font-semibold",
-                          status.badge,
-                          status.color
-                        )}>
-                          {currentHourData.occupancy_pct}%
-                        </div>
+                <div className={cn(
+                  "grid gap-3",
+                  isDesktop ? "md:grid-cols-12" : "grid-cols-1"
+                )}>
+                  <div className={cn(
+                    "rounded-xl bg-background p-3 border border-white/5",
+                    isDesktop ? "md:col-span-8" : ""
+                  )}>
+                    {loading && (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader className="animate-spin text-primary" size={20} />
                       </div>
-                      
-                      <div>
-                        <div className="flex justify-between text-xs text-gray-400 mb-1">
-                          <span>{t('capacity')}</span>
+                    )}
+                    
+                    {error && !loading && (
+                      <div className="flex items-center justify-center gap-2 text-red-400 py-4">
+                        <ServerCrash size={16} />
+                        <span className="text-xs">{error}</span>
+                      </div>
+                    )}
+                    
+                    {currentHourData && status && !loading && !error && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="text-xs text-gray-400 mb-0.5">
+                              {t('estimatedCrowd', { hour: selectedHour })}
+                            </p>
+                            <h3 className={cn("text-lg font-bold", status.color)}>
+                              {t(`crowdLevels.${crowdLevel}`)}
+                            </h3>
+                          </div>
+                          <div className={cn(
+                            "rounded-lg px-3 py-2 border text-xs font-semibold",
+                            status.badge,
+                            status.color
+                          )}>
+                            {currentHourData.occupancy_pct}%
+                          </div>
+                        </div>
+                        
+                        <div className="w-full bg-background rounded-full h-1.5">
+                          <div 
+                            className={cn("h-1.5 rounded-full", status.progressColor)} 
+                            style={{ width: `${currentHourData.occupancy_pct}%` }}
+                          />
+                        </div>
+                        
+                        <div className="flex items-center justify-between text-xs text-gray-500">
+                          <span>
+                            {t('predicted')}: <span className="font-medium text-gray-400">
+                              {Math.round(currentHourData.predicted_value).toLocaleString()}
+                            </span> {t('passengers')}
+                          </span>
                           <span className="flex items-center gap-1">
                             <Users size={10} /> 
                             {currentHourData.max_capacity.toLocaleString()}
                           </span>
                         </div>
-                        <div className="w-full bg-background rounded-full h-2">
-                          <div 
-                            className={cn("h-2 rounded-full", status.progressColor)} 
-                            style={{ width: `${currentHourData.occupancy_pct}%` }}
-                          />
-                        </div>
                       </div>
-                      
-                      <div className="pt-2 border-t border-white/5 flex items-start gap-1.5 text-xs text-gray-400">
-                        <Info size={12} className="shrink-0 mt-0.5" />
-                        <p className="leading-tight">
-                          {t('predicted')}: <span className="font-semibold text-secondary">
-                            {Math.round(currentHourData.predicted_value).toLocaleString()}
-                          </span> {t('passengers')}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  <div className={cn(isDesktop ? "md:col-span-4" : "")}>
+                    <ScheduleWidget 
+                      lineCode={selectedLine.id} 
+                      direction={selectedDirection}
+                      onShowFullSchedule={() => setIsScheduleModalOpen(true)}
+                      compact={true}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -463,67 +474,46 @@ export default function LineDetailPanel() {
               <div className="overflow-y-auto flex-1 px-4 space-y-3 pb-24">
                 <TimeSlider />
 
-                <div className={cn(
-                  "grid gap-3",
-                  isDesktop ? "md:grid-cols-[1fr_300px]" : "grid-cols-1"
-                )}>
-                  <div className="rounded-xl bg-background border border-white/5 overflow-hidden">
-                    <button
-                      onClick={() => {
-                        setIsChartExpanded(!isChartExpanded);
-                        vibrate(5);
-                      }}
-                      className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/5 transition-colors"
-                    >
-                      <p className="text-xs font-medium text-gray-400">
-                        {t('forecast24h')}
-                      </p>
-                      {isChartExpanded ? (
-                        <ChevronUp size={14} className="text-gray-400" />
-                      ) : (
-                        <ChevronDown size={14} className="text-gray-400" />
-                      )}
-                    </button>
-                    
-                    <AnimatePresence>
-                      {(isChartExpanded || isDesktop) && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="px-3 pb-3 h-44">
-                            {loading ? (
-                              <div className="h-full flex items-center justify-center">
-                                <Loader className="animate-spin text-primary" size={20} />
-                              </div>
-                            ) : (
-                              <CrowdChart data={forecastData} />
-                            )}
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-
-                  {isDesktop && (
-                    <ScheduleWidget 
-                      lineCode={selectedLine.id} 
-                      direction={selectedDirection}
-                      onShowFullSchedule={() => setIsScheduleModalOpen(true)}
-                    />
-                  )}
+                <div className="rounded-xl bg-background border border-white/5 overflow-hidden">
+                  <button
+                    onClick={() => {
+                      setIsChartExpanded(!isChartExpanded);
+                      vibrate(5);
+                    }}
+                    className="w-full px-3 py-2 flex items-center justify-between hover:bg-white/5 transition-colors"
+                  >
+                    <p className="text-xs font-medium text-gray-400">
+                      {t('forecast24h')}
+                    </p>
+                    {isChartExpanded ? (
+                      <ChevronUp size={14} className="text-gray-400" />
+                    ) : (
+                      <ChevronDown size={14} className="text-gray-400" />
+                    )}
+                  </button>
+                  
+                  <AnimatePresence>
+                    {(isChartExpanded || isDesktop) && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="px-3 pb-3 h-44">
+                          {loading ? (
+                            <div className="h-full flex items-center justify-center">
+                              <Loader className="animate-spin text-primary" size={20} />
+                            </div>
+                          ) : (
+                            <CrowdChart data={forecastData} />
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
-
-                {!isDesktop && (
-                  <ScheduleWidget 
-                    lineCode={selectedLine.id} 
-                    direction={selectedDirection}
-                    onShowFullSchedule={() => setIsScheduleModalOpen(true)}
-                  />
-                )}
               </div>
             </>
           )}

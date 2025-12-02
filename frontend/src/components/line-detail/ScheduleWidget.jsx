@@ -1,10 +1,10 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { Clock, Loader, Calendar } from 'lucide-react';
+import { Clock, Loader, Calendar, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule }) {
+export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule, compact = false }) {
   const t = useTranslations('schedule');
   const [schedule, setSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -52,9 +52,12 @@ export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule
 
   if (loading) {
     return (
-      <div className="rounded-xl bg-slate-800 border border-white/5 p-4">
-        <div className="flex items-center justify-center py-8">
-          <Loader className="animate-spin text-primary" size={20} />
+      <div className={cn(
+        "rounded-xl bg-slate-800/50 border border-white/5",
+        compact ? "p-2" : "p-4"
+      )}>
+        <div className="flex items-center justify-center py-4">
+          <Loader className="animate-spin text-primary" size={16} />
         </div>
       </div>
     );
@@ -62,10 +65,13 @@ export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule
 
   if (error || !schedule) {
     return (
-      <div className="rounded-xl bg-slate-800 border border-white/5 p-4">
-        <div className="flex items-center gap-2 mb-2">
-          <Clock size={16} className="text-secondary" />
-          <h3 className="text-sm font-medium text-gray-300">{t('upcomingDepartures')}</h3>
+      <div className={cn(
+        "rounded-xl bg-slate-800/50 border border-white/5",
+        compact ? "p-2" : "p-4"
+      )}>
+        <div className="flex items-center gap-2 mb-1">
+          <Clock size={14} className="text-secondary" />
+          <h3 className="text-xs font-medium text-gray-400">{t('upcomingDepartures')}</h3>
         </div>
         <p className="text-xs text-gray-500">{t('noScheduleAvailable')}</p>
       </div>
@@ -74,6 +80,41 @@ export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule
 
   const directionSchedule = schedule[direction] || [];
   const upcomingTrips = getUpcomingDepartures(directionSchedule);
+
+  if (compact) {
+    return (
+      <div 
+        onClick={onShowFullSchedule}
+        className="rounded-xl bg-slate-800/50 border border-white/5 p-3 cursor-pointer hover:bg-slate-800/70 transition-colors"
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <Clock size={14} className="text-secondary" />
+          <h3 className="text-xs font-medium text-gray-400">{t('nextDeparture')}</h3>
+        </div>
+
+        {upcomingTrips.length === 0 ? (
+          <p className="text-xs text-gray-500">{t('noMoreTrips')}</p>
+        ) : (
+          <>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-2xl font-bold text-blue-400">
+                {upcomingTrips[0].timeStr}
+              </span>
+              <span className="text-xs text-gray-500">
+                {upcomingTrips[0].diff < 60 ? `${upcomingTrips[0].diff} ${t('minutes')}` : `${Math.floor(upcomingTrips[0].diff / 60)}h ${upcomingTrips[0].diff % 60}m`}
+              </span>
+            </div>
+            {upcomingTrips.length > 1 && (
+              <div className="flex items-center gap-1 text-xs text-gray-400">
+                <span>+{upcomingTrips.length - 1} {t('moreDepartures')}</span>
+                <ChevronRight size={12} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-xl bg-slate-800 border border-white/5 p-4">

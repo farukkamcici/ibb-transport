@@ -41,6 +41,8 @@
   },
   "schedule": {
     "upcomingDepartures": "Yaklaşan Seferler",
+    "nextDeparture": "Sonraki Sefer",
+    "moreDepartures": "sefer daha",
     "noScheduleAvailable": "Sefer bilgisi mevcut değil",
     "noMoreTrips": "Bugün başka sefer yok",
     "minutes": "dk",

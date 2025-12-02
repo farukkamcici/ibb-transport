@@ -1,7 +1,7 @@
 """
 IETT Planned Schedule Service.
 
-Fetches bus schedules from IETT API and caches them for efficient access.
+Fetches bus schedules from IETT API (SOAP/XML) and caches them for efficient access.
 Filters schedules by day type (weekday/Saturday/Sunday).
 
 Author: Backend Team
@@ -24,16 +24,28 @@ _schedule_cache = TTLCache(maxsize=1000, ttl=86400)
 
 class IETTScheduleService:
     """
-    Service for fetching and caching IETT bus schedules.
+    Service for fetching and caching IETT bus schedules via SOAP/XML.
     """
     
-    IETT_API_URL = "https://api.ibb.gov.tr/iett/UlasimAnaVeri/PlanlananSeferSaati.asmx/GetPlanlananSeferSaati_json"
+    IETT_API_URL = "https://api.ibb.gov.tr/iett/UlasimAnaVeri/PlanlananSeferSaati.asmx"
+    
+    SOAP_ENVELOPE_TEMPLATE = """<?xml version="1.0" encoding="utf-8"?>
+<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+               xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+               xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    <GetPlanlananSeferSaati_XML xmlns="http://tempuri.org/">
+      <HatKodu>{line_code}</HatKodu>
+    </GetPlanlananSeferSaati_XML>
+  </soap:Body>
+</soap:Envelope>"""
     
     def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (compatible; IBB-Transport-Platform/1.0)',
-            'Accept': 'application/json'
+            'Content-Type': 'text/xml; charset=utf-8',
+            'SOAPAction': 'http://tempuri.org/GetPlanlananSeferSaati_XML'
         })
     
     def _get_day_type(self) -> str:
@@ -84,9 +96,66 @@ class IETTScheduleService:
         
         return None
     
+    def _parse_xml_response(self, xml_text: str) -> Optional[List[Dict]]:
+        """
+        Parse SOAP XML response to extract schedule data.
+        
+        Args:
+            xml_text: Raw XML response text
+            
+        Returns:
+            List of schedule records or None if parsing fails
+        """
+        try:
+            root = ET.fromstring(xml_text)
+            
+            # Define namespaces
+            namespaces = {
+                'soap': 'http://schemas.xmlsoap.org/soap/envelope/',
+                'diffgr': 'urn:schemas-microsoft-com:xml-diffgram-v1',
+                'msdata': 'urn:schemas-microsoft-com:xml-msdata'
+            }
+            
+            # Navigate to NewDataSet -> Table elements
+            # Path: soap:Body -> GetPlanlananSeferSaati_XMLResponse -> GetPlanlananSeferSaati_XMLResult -> diffgr:diffgram -> NewDataSet -> Table
+            body = root.find('.//NewDataSet', namespaces)
+            if body is None:
+                # Try without namespace
+                body = root.find('.//NewDataSet')
+            
+            if body is None:
+                logger.warning("No NewDataSet found in XML response")
+                return None
+            
+            # Extract all Table elements
+            tables = body.findall('.//Table')
+            if not tables:
+                logger.warning("No Table elements found in XML response")
+                return None
+            
+            schedule_data = []
+            for table in tables:
+                record = {}
+                for child in table:
+                    # Remove namespace prefix from tag
+                    tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
+                    record[tag] = child.text
+                
+                if record:
+                    schedule_data.append(record)
+            
+            return schedule_data
+            
+        except ET.ParseError as e:
+            logger.error(f"XML parsing error: {e}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error parsing XML: {e}")
+            return None
+    
     def _fetch_from_iett(self, line_code: str) -> Optional[List[Dict]]:
         """
-        Fetch schedule data from IETT API.
+        Fetch schedule data from IETT SOAP API.
         
         Args:
             line_code: Bus line code (e.g., "15F")
@@ -95,32 +164,22 @@ class IETTScheduleService:
             List of schedule records or None if request fails
         """
         try:
-            # Try JSON endpoint first
-            params = {'HatKodu': line_code}
-            response = self.session.get(
+            # Prepare SOAP envelope
+            soap_body = self.SOAP_ENVELOPE_TEMPLATE.format(line_code=line_code)
+            
+            # Send POST request
+            response = self.session.post(
                 self.IETT_API_URL,
-                params=params,
-                timeout=10
+                data=soap_body.encode('utf-8'),
+                timeout=15
             )
             response.raise_for_status()
             
-            data = response.json()
+            # Parse XML response
+            schedule_data = self._parse_xml_response(response.text)
             
-            # IETT API returns nested structure
-            if isinstance(data, dict):
-                # Try common response structures
-                schedule_data = (
-                    data.get('GetPlanlananSeferSaati_jsonResult') or
-                    data.get('d') or
-                    data.get('data') or
-                    data
-                )
-            else:
-                schedule_data = data
-            
-            # Ensure it's a list
-            if not isinstance(schedule_data, list):
-                logger.warning(f"Unexpected response format for line {line_code}")
+            if schedule_data is None:
+                logger.warning(f"No schedule data parsed for line {line_code}")
                 return None
             
             return schedule_data
@@ -154,8 +213,10 @@ class IETTScheduleService:
         # Fetch from API
         raw_data = self._fetch_from_iett(line_code)
         if not raw_data:
-            logger.warning(f"No schedule data available for line {line_code}")
-            return {"G": [], "D": []}
+            logger.warning(f"No schedule data available for line {line_code} - returning empty")
+            empty_result = {"G": [], "D": []}
+            _schedule_cache[cache_key] = empty_result
+            return empty_result
         
         # Get today's day type
         day_type = self._get_day_type()
@@ -166,7 +227,7 @@ class IETTScheduleService:
         
         for record in raw_data:
             try:
-                # Extract fields (handle different field name cases)
+                # Extract fields from XML (SHATKODU, SYON, SGUNTIPI, DT)
                 schedule_day_type = record.get('SGUNTIPI') or record.get('sguntipi') or record.get('GunTipi')
                 direction = record.get('SYON') or record.get('syon') or record.get('Yon')
                 time_str = record.get('DT') or record.get('dt') or record.get('Saat')
