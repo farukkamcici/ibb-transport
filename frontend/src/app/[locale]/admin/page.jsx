@@ -7,6 +7,7 @@ import { format, addDays } from 'date-fns';
 import SchedulerPanel from '@/components/admin/SchedulerPanel';
 import ForecastCoverage from '@/components/admin/ForecastCoverage';
 import UserManagement from '@/components/admin/UserManagement';
+import ReportsPanel from '@/components/admin/ReportsPanel';
 import ProtectedRoute from '@/components/admin/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -15,6 +16,7 @@ const tabs = [
   { id: 'dashboard', name: 'Dashboard', icon: '📊' },
   { id: 'operations', name: 'Operations', icon: '⚡' },
   { id: 'scheduler', name: 'Scheduler', icon: '⏰' },
+  { id: 'reports', name: 'User Reports', icon: '📋' },
   { id: 'users', name: 'Users', icon: '👥' },
   { id: 'jobs', name: 'Job History', icon: '📜' },
 ];
@@ -70,6 +72,7 @@ function AdminDashboardContent() {
   const [showCleanupModal, setShowCleanupModal] = useState(false);
   const [cleanupConfirmText, setCleanupConfirmText] = useState("");
   const [isCleaningUp, setIsCleaningUp] = useState(false);
+  const [newReportsCount, setNewReportsCount] = useState(0);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -81,18 +84,23 @@ function AdminDashboardContent() {
   const fetchData = async () => {
     try {
       const headers = getAuthHeaders();
-      const [statsRes, jobsRes, fsStatsRes, schedRes, covRes] = await Promise.all([
+      const [statsRes, jobsRes, fsStatsRes, schedRes, covRes, reportsStatsRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, { headers }),
         axios.get(`${API_URL}/admin/jobs?limit=${jobLimit}`, { headers }),
         axios.get(`${API_URL}/admin/feature-store/stats`, { headers }).catch(() => ({ data: null })),
         axios.get(`${API_URL}/admin/scheduler/status`, { headers }).catch(() => ({ data: null })),
-        axios.get(`${API_URL}/admin/forecasts/coverage`, { headers }).catch(() => ({ data: null }))
+        axios.get(`${API_URL}/admin/forecasts/coverage`, { headers }).catch(() => ({ data: null })),
+        axios.get(`${API_URL}/admin/reports/stats/summary`, { headers }).catch(() => ({ data: null }))
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);
       setFeatureStoreStats(fsStatsRes.data);
       setSchedulerStatus(schedRes.data);
       setForecastCoverage(covRes.data);
+      
+      if (reportsStatsRes.data) {
+        setNewReportsCount(reportsStatsRes.data.by_status?.new || 0);
+      }
     } catch (error) {
       console.error("Admin data fetch error:", error);
       if (error.response?.status === 401) {
@@ -228,7 +236,7 @@ function AdminDashboardContent() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 relative ${
                   activeTab === tab.id
                     ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
                     : 'text-gray-400 hover:text-white hover:bg-gray-800'
@@ -236,6 +244,11 @@ function AdminDashboardContent() {
               >
                 <span>{tab.icon}</span>
                 <span>{tab.name}</span>
+                {tab.id === 'reports' && newReportsCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
+                    {newReportsCount > 9 ? '9+' : newReportsCount}
+                  </span>
+                )}
               </button>
             ))}
           </div>
@@ -448,6 +461,11 @@ function AdminDashboardContent() {
             getAuthHeaders={getAuthHeaders}
             onRefresh={fetchData}
           />
+        )}
+
+        {/* Reports Tab */}
+        {activeTab === 'reports' && (
+          <ReportsPanel API_URL={API_URL} getAuthHeaders={getAuthHeaders} />
         )}
 
         {/* Users Tab */}

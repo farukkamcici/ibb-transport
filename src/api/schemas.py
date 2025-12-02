@@ -1,4 +1,37 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
+from datetime import datetime
+from enum import Enum
+
+class ReportTypeEnum(str, Enum):
+    """Report type enumeration for API"""
+    bug = "bug"
+    data = "data"
+    feature = "feature"
+
+class ReportCreate(BaseModel):
+    """Schema for creating a new user report"""
+    report_type: ReportTypeEnum
+    line_code: Optional[str] = None
+    description: str = Field(..., min_length=10, max_length=2000)
+    contact_email: Optional[EmailStr] = None
+
+class ReportUpdate(BaseModel):
+    """Schema for updating report status"""
+    status: str = Field(..., pattern="^(new|in_progress|resolved|closed)$")
+
+class ReportResponse(BaseModel):
+    """Schema for report response (admin view)"""
+    id: int
+    report_type: str
+    line_code: Optional[str]
+    description: str
+    contact_email: Optional[str]
+    status: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
 
 class UserPredictionRequest(BaseModel):
     """

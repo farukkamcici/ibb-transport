@@ -1,8 +1,15 @@
-from sqlalchemy import Column, Integer, String, Date, Float, UniqueConstraint, DateTime, Text
+from sqlalchemy import Column, Integer, String, Date, Float, UniqueConstraint, DateTime, Text, Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
+import enum
 
 Base = declarative_base()
+
+class ReportType(enum.Enum):
+    """Report type enumeration"""
+    bug = "bug"
+    data = "data"
+    feature = "feature"
 
 class TransportLine(Base):
     __tablename__ = "transport_lines"
@@ -50,3 +57,15 @@ class AdminUser(Base):
     hashed_password = Column(String, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     last_login = Column(DateTime(timezone=True), nullable=True)
+
+class UserReport(Base):
+    """User reports for bug reports, data issues, and feature requests."""
+    __tablename__ = "user_reports"
+
+    id = Column(Integer, primary_key=True, index=True)
+    report_type = Column(SQLEnum(ReportType), nullable=False, index=True)
+    line_code = Column(String, nullable=True, index=True)
+    description = Column(Text, nullable=False)
+    contact_email = Column(String, nullable=True)
+    status = Column(String, default="new", index=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
