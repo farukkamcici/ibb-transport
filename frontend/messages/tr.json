@@ -17,11 +17,12 @@
     "estimatedCrowd": "Tahmini Yoğunluk: {hour}:00",
     "occupancy": "Doluluk",
     "predictedPassengers": "Tahmini yolcu sayısı",
-    "maxCapacity": "Maksimum kapasite",
+    "maxCapacity": "Maks. Kapasite",
+    "maxCapacityTooltip": "Tarihte kaydedilen maksimum yoğunluk",
     "forecast24h": "24 Saatlik Tahmin",
     "capacity": "Kapasite",
     "predicted": "Tahmini",
-    "passengers": "yolcu",
+    "passengers": "kişi",
     "routeView": "Güzergah Görünümü",
     "show": "Göster",
     "hide": "Gizle",
@@ -40,6 +41,7 @@
     }
   },
   "schedule": {
+    "plannedTrips": "Planlanan Seferler",
     "upcomingDepartures": "Yaklaşan Seferler",
     "nextDeparture": "Sonraki Sefer",
     "moreDepartures": "sefer daha",
@@ -50,7 +52,8 @@
     "seeFullSchedule": "Tüm Seferleri Gör",
     "fullSchedule": "Tüm Sefer Saatleri",
     "outbound": "Gidiş",
-    "inbound": "Dönüş"
+    "inbound": "Dönüş",
+    "departureFrom": "Kalkış Durağı"
   },
   "transportTypes": {
     "bus": "Otobüs",

@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import { X, Clock, Loader } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirection = 'G' }) {
+export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirection = 'G', directionInfo = {} }) {
   const t = useTranslations('schedule');
   const [schedule, setSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -77,29 +77,59 @@ export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirect
           </button>
         </div>
 
-        <div className="flex gap-2 px-6 py-3 border-b border-white/10 bg-slate-800/50">
-          <button
-            onClick={() => setActiveTab('G')}
-            className={cn(
-              "flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors",
-              activeTab === 'G'
-                ? "bg-primary text-white"
-                : "bg-slate-700 text-gray-400 hover:bg-slate-600"
-            )}
-          >
-            {t('outbound')}
-          </button>
-          <button
-            onClick={() => setActiveTab('D')}
-            className={cn(
-              "flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors",
-              activeTab === 'D'
-                ? "bg-primary text-white"
-                : "bg-slate-700 text-gray-400 hover:bg-slate-600"
-            )}
-          >
-            {t('inbound')}
-          </button>
+        <div className="px-6 py-3 border-b border-white/10 bg-slate-800/50">
+          <div className="flex gap-2">
+            {Object.keys(schedule || {}).filter(key => key !== 'meta').map((dir) => {
+              // Priority: API meta > directionInfo from route data > fallback
+              const apiMeta = schedule?.meta?.[dir];
+              const routeInfo = directionInfo[dir];
+              
+              let label;
+              let startStop = null;
+              
+              if (apiMeta?.end) {
+                // Use API metadata (from HATADI)
+                label = apiMeta.end;
+                startStop = apiMeta.start;
+              } else if (routeInfo?.endStop) {
+                // Fallback to route polyline data
+                label = routeInfo.endStop;
+                startStop = routeInfo.startStop;
+              } else {
+                // Final fallback: generic labels
+                label = dir === 'G' ? t('outbound') : dir === 'D' ? t('inbound') : dir;
+              }
+              
+              return (
+                <button
+                  key={dir}
+                  onClick={() => setActiveTab(dir)}
+                  className={cn(
+                    "flex-1 py-2 px-3 rounded-lg text-xs font-medium transition-colors truncate",
+                    activeTab === dir
+                      ? "bg-primary text-white"
+                      : "bg-slate-700 text-gray-400 hover:bg-slate-600"
+                  )}
+                  title={label}
+                >
+                  <span className="block truncate">{label}</span>
+                </button>
+              );
+            })}
+          </div>
+          {(() => {
+            const apiMeta = schedule?.meta?.[activeTab];
+            const routeInfo = directionInfo[activeTab];
+            const startStop = apiMeta?.start || routeInfo?.startStop;
+            
+            return startStop ? (
+              <div className="mt-2 text-center">
+                <p className="text-[10px] text-gray-500">
+                  {t('departureFrom')}: <span className="text-gray-400 font-medium">{startStop}</span>
+                </p>
+              </div>
+            ) : null;
+          })()}
         </div>
 
         <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">

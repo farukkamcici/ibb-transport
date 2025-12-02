@@ -62,6 +62,7 @@ export default function LineDetailPanel() {
   const [isChartExpanded, setIsChartExpanded] = useState(false);
   const [hasRouteData, setHasRouteData] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [showCapacityTooltip, setShowCapacityTooltip] = useState(false);
 
   useEffect(() => {
     if (isPanelOpen && selectedLine) {
@@ -90,6 +91,14 @@ export default function LineDetailPanel() {
       setError(null);
     }
   }, [isPanelOpen, selectedLine]);
+
+  useEffect(() => {
+    if (!isDesktop && showCapacityTooltip) {
+      const handleClickOutside = () => setShowCapacityTooltip(false);
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [showCapacityTooltip, isDesktop]);
 
   useEffect(() => {
     if (showRoute) {
@@ -341,39 +350,39 @@ export default function LineDetailPanel() {
                 </div>
 
                 <div className={cn(
-                  "grid gap-3",
-                  isDesktop ? "md:grid-cols-12" : "grid-cols-1"
+                  "grid gap-2",
+                  isDesktop ? "md:grid-cols-12 md:items-stretch" : "grid-cols-1"
                 )}>
                   <div className={cn(
-                    "rounded-xl bg-background p-3 border border-white/5",
+                    "rounded-xl bg-background p-2.5 border border-white/5 flex flex-col",
                     isDesktop ? "md:col-span-8" : ""
                   )}>
                     {loading && (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader className="animate-spin text-primary" size={20} />
+                      <div className="flex items-center justify-center py-3 flex-1">
+                        <Loader className="animate-spin text-primary" size={18} />
                       </div>
                     )}
                     
                     {error && !loading && (
-                      <div className="flex items-center justify-center gap-2 text-red-400 py-4">
-                        <ServerCrash size={16} />
-                        <span className="text-xs">{error}</span>
+                      <div className="flex items-center justify-center gap-2 text-red-400 py-3 flex-1">
+                        <ServerCrash size={14} />
+                        <span className="text-[11px]">{error}</span>
                       </div>
                     )}
                     
                     {currentHourData && status && !loading && !error && (
-                      <div className="space-y-2">
+                      <div className="space-y-1.5 flex-1 flex flex-col justify-center">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="text-xs text-gray-400 mb-0.5">
+                            <p className="text-[10px] text-gray-400 mb-0.5">
                               {t('estimatedCrowd', { hour: selectedHour })}
                             </p>
-                            <h3 className={cn("text-lg font-bold", status.color)}>
+                            <h3 className={cn("text-base font-bold", status.color)}>
                               {t(`crowdLevels.${crowdLevel}`)}
                             </h3>
                           </div>
                           <div className={cn(
-                            "rounded-lg px-3 py-2 border text-xs font-semibold",
+                            "rounded-md px-2.5 py-1.5 border text-xs font-semibold",
                             status.badge,
                             status.color
                           )}>
@@ -381,23 +390,43 @@ export default function LineDetailPanel() {
                           </div>
                         </div>
                         
-                        <div className="w-full bg-background rounded-full h-1.5">
+                        <div className="w-full bg-background rounded-full h-1">
                           <div 
-                            className={cn("h-1.5 rounded-full", status.progressColor)} 
+                            className={cn("h-1 rounded-full", status.progressColor)} 
                             style={{ width: `${currentHourData.occupancy_pct}%` }}
                           />
                         </div>
                         
-                        <div className="flex items-center justify-between text-xs text-gray-500">
-                          <span>
-                            {t('predicted')}: <span className="font-medium text-gray-400">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-400">
+                            {t('predicted')}: <span className="font-semibold text-gray-300">
                               {Math.round(currentHourData.predicted_value).toLocaleString()}
-                            </span> {t('passengers')}
+                            </span> <span className="text-gray-500">{t('passengers')}</span>
                           </span>
-                          <span className="flex items-center gap-1">
-                            <Users size={10} /> 
-                            {currentHourData.max_capacity.toLocaleString()}
-                          </span>
+                          <div className="relative">
+                            <span 
+                              className="flex items-center gap-1 text-gray-400 cursor-help"
+                              onMouseEnter={() => isDesktop && setShowCapacityTooltip(true)}
+                              onMouseLeave={() => isDesktop && setShowCapacityTooltip(false)}
+                              onClick={(e) => {
+                                if (!isDesktop) {
+                                  e.stopPropagation();
+                                  setShowCapacityTooltip(!showCapacityTooltip);
+                                  vibrate(5);
+                                }
+                              }}
+                            >
+                              <span className="text-[9px] text-gray-500">{t('maxCapacity')}</span>
+                              <Users size={10} className="text-gray-500" /> 
+                              <span className="font-semibold text-gray-300">{currentHourData.max_capacity.toLocaleString()}</span>
+                            </span>
+                            {showCapacityTooltip && (
+                              <div className="absolute right-0 bottom-full mb-2 px-2 py-1.5 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-50 whitespace-nowrap">
+                                <p className="text-[10px] text-gray-300">{t('maxCapacityTooltip')}</p>
+                                <div className="absolute right-3 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-800"></div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                     )}
@@ -471,7 +500,7 @@ export default function LineDetailPanel() {
                 </div>
               </div>
 
-              <div className="overflow-y-auto flex-1 px-4 space-y-3 pb-24">
+              <div className="overflow-y-auto flex-1 px-4 space-y-3 pb-28 md:pb-24">
                 <TimeSlider />
 
                 <div className="rounded-xl bg-background border border-white/5 overflow-hidden">
@@ -525,6 +554,7 @@ export default function LineDetailPanel() {
         isOpen={isScheduleModalOpen}
         onClose={() => setIsScheduleModalOpen(false)}
         initialDirection={selectedDirection}
+        directionInfo={directionInfo}
       />
     </>
   );

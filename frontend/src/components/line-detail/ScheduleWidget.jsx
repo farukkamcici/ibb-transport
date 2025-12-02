@@ -85,31 +85,71 @@ export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule
     return (
       <div 
         onClick={onShowFullSchedule}
-        className="rounded-xl bg-slate-800/50 border border-white/5 p-3 cursor-pointer hover:bg-slate-800/70 transition-colors"
+        className="rounded-xl bg-slate-800/50 border border-white/5 p-2 cursor-pointer hover:bg-slate-800/70 transition-colors h-full flex flex-col"
       >
-        <div className="flex items-center gap-2 mb-2">
-          <Clock size={14} className="text-secondary" />
-          <h3 className="text-xs font-medium text-gray-400">{t('nextDeparture')}</h3>
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1">
+            <Clock size={11} className="text-secondary" />
+            <h3 className="text-[10px] font-medium text-gray-400">{t('plannedTrips')}</h3>
+          </div>
+          <ChevronRight size={11} className="text-gray-500" />
         </div>
 
         {upcomingTrips.length === 0 ? (
-          <p className="text-xs text-gray-500">{t('noMoreTrips')}</p>
+          <div className="flex-1 flex items-center justify-center py-2">
+            <p className="text-[10px] text-gray-500">{t('noMoreTrips')}</p>
+          </div>
         ) : (
           <>
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-2xl font-bold text-blue-400">
-                {upcomingTrips[0].timeStr}
-              </span>
-              <span className="text-xs text-gray-500">
-                {upcomingTrips[0].diff < 60 ? `${upcomingTrips[0].diff} ${t('minutes')}` : `${Math.floor(upcomingTrips[0].diff / 60)}h ${upcomingTrips[0].diff % 60}m`}
-              </span>
+            {/* Desktop: Vertical List */}
+            <div className="hidden md:block space-y-1">
+              {upcomingTrips.map((trip, idx) => (
+                <div 
+                  key={idx}
+                  className={cn(
+                    "flex items-center justify-between px-1.5 py-1 rounded border",
+                    idx === 0 
+                      ? "bg-blue-500/10 border-blue-500/30" 
+                      : "bg-slate-700/30 border-white/5"
+                  )}
+                >
+                  <span className={cn(
+                    "text-xs font-bold",
+                    idx === 0 ? "text-blue-400" : "text-gray-300"
+                  )}>
+                    {trip.timeStr}
+                  </span>
+                  <span className="text-[9px] text-gray-500">
+                    {trip.diff < 60 ? `${trip.diff} ${t('minutes')}` : `${Math.floor(trip.diff / 60)}h ${trip.diff % 60}m`}
+                  </span>
+                </div>
+              ))}
             </div>
-            {upcomingTrips.length > 1 && (
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <span>+{upcomingTrips.length - 1} {t('moreDepartures')}</span>
-                <ChevronRight size={12} />
-              </div>
-            )}
+
+            {/* Mobile: Horizontal Cards */}
+            <div className="flex md:hidden gap-1.5 flex-1 items-center">
+              {upcomingTrips.map((trip, idx) => (
+                <div 
+                  key={idx}
+                  className={cn(
+                    "flex-1 flex flex-col items-center justify-center rounded-md py-1.5 px-1 border min-w-0",
+                    idx === 0 
+                      ? "bg-blue-500/10 border-blue-500/30" 
+                      : "bg-slate-700/30 border-white/5"
+                  )}
+                >
+                  <span className={cn(
+                    "text-sm font-bold truncate",
+                    idx === 0 ? "text-blue-400" : "text-gray-300"
+                  )}>
+                    {trip.timeStr}
+                  </span>
+                  <span className="text-[9px] text-gray-500 mt-0.5 truncate">
+                    {trip.diff < 60 ? `${trip.diff}${t('minutes')}` : `${Math.floor(trip.diff / 60)}h${trip.diff % 60}m`}
+                  </span>
+                </div>
+              ))}
+            </div>
           </>
         )}
       </div>

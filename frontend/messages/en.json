@@ -17,11 +17,12 @@
     "estimatedCrowd": "Estimated Crowd at {hour}:00",
     "occupancy": "Occupancy",
     "predictedPassengers": "Predicted passenger count",
-    "maxCapacity": "Max capacity",
+    "maxCapacity": "Max Capacity",
+    "maxCapacityTooltip": "Historical maximum crowding recorded",
     "forecast24h": "24-Hour Forecast",
     "capacity": "Capacity",
     "predicted": "Predicted",
-    "passengers": "passengers",
+    "passengers": "people",
     "routeView": "Route View",
     "show": "Show",
     "hide": "Hide",
@@ -40,6 +41,7 @@
     }
   },
   "schedule": {
+    "plannedTrips": "Planned Trips",
     "upcomingDepartures": "Upcoming Departures",
     "nextDeparture": "Next Departure",
     "moreDepartures": "more departures",
@@ -50,7 +52,8 @@
     "seeFullSchedule": "See Full Schedule",
     "fullSchedule": "Full Schedule",
     "outbound": "Outbound",
-    "inbound": "Inbound"
+    "inbound": "Inbound",
+    "departureFrom": "Departure Stop"
   },
   "transportTypes": {
     "bus": "Bus",

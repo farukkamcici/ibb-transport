@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from typing import Dict, List
+from typing import Dict, List, Optional
 from pydantic import BaseModel
 
 from ..services.schedule_service import schedule_service
@@ -7,10 +7,17 @@ from ..services.schedule_service import schedule_service
 router = APIRouter()
 
 
+class DirectionMeta(BaseModel):
+    """Metadata for a route direction"""
+    start: str  # Starting stop name
+    end: str    # Ending stop name
+
+
 class ScheduleResponse(BaseModel):
     """Response model for bus schedule"""
     G: List[str]  # Forward direction (Gidiş)
     D: List[str]  # Return direction (Dönüş)
+    meta: Optional[Dict[str, DirectionMeta]] = None  # Route direction metadata
 
 
 @router.get("/lines/{line_code}/schedule", response_model=ScheduleResponse)
@@ -33,7 +40,11 @@ def get_line_schedule(line_code: str):
         Example:
         {
             "G": ["06:00", "06:20", "06:40", ...],
-            "D": ["06:15", "06:35", "06:55", ...]
+            "D": ["06:15", "06:35", "06:55", ...],
+            "meta": {
+                "G": {"start": "KADIKÖY", "end": "PENDİK"},
+                "D": {"start": "PENDİK", "end": "KADIKÖY"}
+            }
         }
         
     Raises:

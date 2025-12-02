@@ -139,7 +139,7 @@ class IETTScheduleService:
                 for child in table:
                     # Remove namespace prefix from tag
                     tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
-                    record[tag] = child.text
+                    record[tag] = child.text if child.text else ""
                 
                 if record:
                     schedule_data.append(record)
@@ -191,16 +191,42 @@ class IETTScheduleService:
             logger.error(f"Unexpected error fetching schedule for line {line_code}: {e}")
             return None
     
-    def get_schedule(self, line_code: str) -> Dict[str, List[str]]:
+    def _parse_route_name(self, route_name: str) -> Dict[str, str]:
         """
-        Get filtered and sorted schedule for a bus line.
+        Parse route name to extract start and end stops.
+        
+        Args:
+            route_name: Route name string (e.g., "KADIKÖY - PENDİK")
+            
+        Returns:
+            Dictionary with start and end stop names
+        """
+        if not route_name or ' - ' not in route_name:
+            return {"start": "", "end": ""}
+        
+        parts = route_name.split(' - ', 1)
+        if len(parts) == 2:
+            return {"start": parts[0].strip(), "end": parts[1].strip()}
+        
+        return {"start": "", "end": ""}
+    
+    def get_schedule(self, line_code: str) -> Dict:
+        """
+        Get filtered and sorted schedule for a bus line with route metadata.
         
         Args:
             line_code: Bus line code (e.g., "15F")
             
         Returns:
-            Dictionary with directions as keys and sorted time lists as values
-            Example: {"G": ["06:00", "06:20", ...], "D": ["07:00", "07:30", ...]}
+            Dictionary with directions, times, and metadata
+            Example: {
+                "G": ["06:00", "06:20", ...], 
+                "D": ["07:00", "07:30", ...],
+                "meta": {
+                    "G": {"start": "KADIKÖY", "end": "PENDİK"},
+                    "D": {"start": "PENDİK", "end": "KADIKÖY"}
+                }
+            }
         """
         # Check cache first
         cache_key = f"{line_code}_{datetime.now().strftime('%Y-%m-%d')}"
@@ -214,7 +240,7 @@ class IETTScheduleService:
         raw_data = self._fetch_from_iett(line_code)
         if not raw_data:
             logger.warning(f"No schedule data available for line {line_code} - returning empty")
-            empty_result = {"G": [], "D": []}
+            empty_result = {"G": [], "D": [], "meta": {}}
             _schedule_cache[cache_key] = empty_result
             return empty_result
         
@@ -224,13 +250,15 @@ class IETTScheduleService:
         
         # Filter and organize by direction
         schedules_by_direction = {"G": [], "D": []}
+        route_names_by_direction = {}
         
         for record in raw_data:
             try:
-                # Extract fields from XML (SHATKODU, SYON, SGUNTIPI, DT)
+                # Extract fields from XML (SHATKODU, SYON, SGUNTIPI, DT, HATADI)
                 schedule_day_type = record.get('SGUNTIPI') or record.get('sguntipi') or record.get('GunTipi')
                 direction = record.get('SYON') or record.get('syon') or record.get('Yon')
                 time_str = record.get('DT') or record.get('dt') or record.get('Saat')
+                route_name = record.get('HATADI') or record.get('hatadi') or record.get('HatAdi') or ""
                 
                 # Skip if missing required fields
                 if not all([schedule_day_type, direction, time_str]):
@@ -239,6 +267,10 @@ class IETTScheduleService:
                 # Filter by day type
                 if schedule_day_type != day_type:
                     continue
+                
+                # Store route name for this direction
+                if direction not in route_names_by_direction and route_name:
+                    route_names_by_direction[direction] = route_name
                 
                 # Add to appropriate direction
                 if direction in schedules_by_direction:
@@ -263,16 +295,43 @@ class IETTScheduleService:
             parsed_times.sort(key=lambda x: x[0])
             schedules_by_direction[direction] = [time_str for _, time_str in parsed_times]
         
+        # Build metadata with route direction info
+        meta = {}
+        
+        # Parse route names for each direction
+        for direction, route_name in route_names_by_direction.items():
+            parsed_route = self._parse_route_name(route_name)
+            
+            if direction == 'G':
+                # Gidiş: A -> B
+                meta['G'] = {
+                    "start": parsed_route.get("start", ""),
+                    "end": parsed_route.get("end", "")
+                }
+            elif direction == 'D':
+                # Dönüş: B -> A (reversed)
+                meta['D'] = {
+                    "start": parsed_route.get("end", ""),
+                    "end": parsed_route.get("start", "")
+                }
+        
+        # Prepare final result
+        result = {
+            **schedules_by_direction,
+            "meta": meta
+        }
+        
         # Cache result
-        _schedule_cache[cache_key] = schedules_by_direction
+        _schedule_cache[cache_key] = result
         
         logger.info(
             f"Schedule fetched for line {line_code}: "
             f"G={len(schedules_by_direction['G'])} trips, "
-            f"D={len(schedules_by_direction['D'])} trips"
+            f"D={len(schedules_by_direction['D'])} trips, "
+            f"meta={meta}"
         )
         
-        return schedules_by_direction
+        return result
     
     def clear_cache(self, line_code: Optional[str] = None):
         """
