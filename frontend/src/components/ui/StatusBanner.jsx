@@ -37,7 +37,12 @@ export default function StatusBanner({ status, className, onClick }) {
   const hasMultipleAlerts = status.alerts.length > 1;
   const displayMessage = status.alerts.map(a => a.text).join(' • ');
   const isLongMessage = displayMessage.length > 80;
-  const isClickable = hasMultipleAlerts && onClick;
+  // Modal açılabilir: Birden fazla alert varsa VEYA uzun mesaj varsa
+  const isClickable = (hasMultipleAlerts || isLongMessage) && onClick;
+
+  // Dinamik animasyon süresi: karakter başına ~0.15 saniye (okuma hızı)
+  // Minimum 10s, maksimum 60s
+  const scrollDuration = Math.min(60, Math.max(10, displayMessage.length * 0.15));
 
   return (
     <div
@@ -54,14 +59,21 @@ export default function StatusBanner({ status, className, onClick }) {
       <div className="flex-1 min-w-0">
         {isLongMessage ? (
           <div className="overflow-hidden relative">
-            <div className="flex animate-scroll">
+            <div 
+              className="flex"
+              style={{ 
+                width: 'fit-content', 
+                animation: `scroll ${scrollDuration}s linear 1s infinite`
+              }}
+            >
               <p className={cn('text-xs font-medium whitespace-nowrap', config.textColor)}>
                 {displayMessage}
               </p>
-              <span className={cn('text-xs font-medium whitespace-nowrap mx-4', config.textColor)}>|</span>
+              <span className={cn('text-xs font-medium whitespace-nowrap mx-8', config.textColor)}>•</span>
               <p className={cn('text-xs font-medium whitespace-nowrap', config.textColor)}>
                 {displayMessage}
               </p>
+              <span className={cn('text-xs font-medium whitespace-nowrap mx-8', config.textColor)}>•</span>
             </div>
           </div>
         ) : (
@@ -75,10 +87,10 @@ export default function StatusBanner({ status, className, onClick }) {
               {t('nextService')}: {status.next_service_time}
             </p>
           )}
-          {hasMultipleAlerts && (
+          {isClickable && (
             <p className="text-[10px] font-semibold text-gray-400 flex items-center gap-1">
               ({status.alerts.length} {t('alerts')})
-              {isClickable && <ChevronRight size={12} />}
+              <ChevronRight size={12} />
             </p>
           )}
         </div>

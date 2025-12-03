@@ -475,7 +475,7 @@ export default function LineDetailPanel() {
                     <StatusBanner 
                       status={lineStatus} 
                       onClick={() => {
-                        if (lineStatus.alerts && lineStatus.alerts.length > 1) {
+                        if (lineStatus.alerts && lineStatus.alerts.length > 0) {
                           setIsAlertsModalOpen(true);
                           vibrate(5);
                         }
