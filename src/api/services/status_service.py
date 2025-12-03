@@ -11,6 +11,7 @@ Date: 2025-12-03
 import requests
 import logging
 import re
+import json
 from datetime import datetime, time, timedelta
 from typing import Dict, Optional, List
 from cachetools import TTLCache
@@ -107,8 +108,8 @@ class IETTStatusService:
         """
         Fetch disruption alerts from IETT API.
         
-        According to IETT API spec (page 4), GetDuyurular_json returns ALL alerts
-        for all lines. We need to filter by HATKODU field to find alerts for our line.
+        GetDuyurular_json returns a JSON string wrapped in XML/SOAP envelope.
+        Response format: <GetDuyurular_jsonResult>[{"HATKODU":"10", "MESAJ":"...", ...}, ...]</GetDuyurular_jsonResult>
         
         Only returns alerts from the last 24 hours (based on GUNCELLEME_SAATI).
         
@@ -130,35 +131,28 @@ class IETTStatusService:
             )
             response.raise_for_status()
             
-            # Debug logging
             print(f"[DEBUG] IETT API Response Status: {response.status_code}")
             print(f"[DEBUG] Response length: {len(response.text)} chars")
             
-            # Debug: Show XML structure
-            if len(response.text) < 2000:
-                print(f"[DEBUG] Raw XML preview:\n{response.text[:1000]}")
-            else:
-                print(f"[DEBUG] Raw XML first 500 chars:\n{response.text[:500]}")
+            # Extract JSON string from XML using regex
+            # Pattern: <GetDuyurular_jsonResult>JSON_HERE</GetDuyurular_jsonResult>
+            json_match = re.search(r'<GetDuyurular_jsonResult>(.*?)</GetDuyurular_jsonResult>', 
+                                   response.text, 
+                                   re.DOTALL)
             
-            # NUCLEAR OPTION: Strip all XML namespaces to avoid namespace hell
-            # This removes xmlns="" declarations that confuse ElementTree
-            xml_text = response.text
-            xml_text = re.sub(r' xmlns="[^"]+"', '', xml_text)
+            if not json_match:
+                print(f"[ERROR] Could not find GetDuyurular_jsonResult in response")
+                return []
             
-            print(f"[DEBUG] After namespace strip (first 500 chars):\n{xml_text[:500]}")
-            print(f"[DEBUG] Parsing XML...")
+            json_string = json_match.group(1).strip()
+            print(f"[DEBUG] Extracted JSON string length: {len(json_string)} chars")
             
-            # Parse cleaned XML
-            root = ET.fromstring(xml_text)
-            print(f"[DEBUG] Root tag: {root.tag}")
+            # Parse JSON array
+            alerts_data = json.loads(json_string)
+            print(f"[DEBUG] Parsed {len(alerts_data)} total alerts from JSON")
             
-            # Now find Table elements without namespace issues
-            tables = root.findall('.//Table')
-            
-            print(f"[DEBUG] Found {len(tables)} Table elements in response")
-            
-            if not tables:
-                print(f"[DEBUG] No Table elements found")
+            if not isinstance(alerts_data, list):
+                print(f"[ERROR] Expected JSON array, got {type(alerts_data)}")
                 return []
             
             # Collect all alerts for this line
@@ -166,40 +160,28 @@ class IETTStatusService:
             now = datetime.now()
             cutoff_time = now - timedelta(hours=24)
             
-            # Debug: Show first few line codes found
-            sample_codes = []
+            # Debug: Show first few line codes
+            sample_codes = [item.get('HATKODU', 'N/A') for item in alerts_data[:10]]
+            print(f"[DEBUG] Sample HATKODUs: {sample_codes}")
             
-            for table in tables:
-                # Extract HATKODU (primary field for line matching)
-                hatkodu_elem = table.find('HATKODU')
-                mesaj_elem = table.find('MESAJ')
-                update_time_elem = table.find('GUNCELLEME_SAATI')
+            for item in alerts_data:
+                # Extract fields
+                hat_code = item.get('HATKODU', '').strip()
+                mesaj_text = item.get('MESAJ', '').strip()
+                update_time_str = item.get('GUNCELLEME_SAATI', '')
                 
-                if hatkodu_elem is not None:
-                    hat_code = hatkodu_elem.text.strip() if hatkodu_elem.text else ""
-                    
-                    # Collect sample for debugging
-                    if len(sample_codes) < 10:
-                        sample_codes.append(hat_code)
-                    
-                    # Exact match on HATKODU (case-insensitive)
-                    if hat_code.upper() == line_code.upper():
-                        # Extract message
-                        mesaj_text = mesaj_elem.text.strip() if mesaj_elem is not None and mesaj_elem.text else ""
+                # Exact match on HATKODU (case-insensitive)
+                if hat_code.upper() == line_code.upper() and mesaj_text:
+                    # Check timestamp - only include alerts from last 24 hours
+                    if update_time_str:
+                        update_time = self._parse_update_time(update_time_str)
                         
-                        if mesaj_text:
-                            # Check timestamp - only include alerts from last 24 hours
-                            if update_time_elem is not None and update_time_elem.text:
-                                update_time = self._parse_update_time(update_time_elem.text)
-                                
-                                if update_time and update_time < cutoff_time:
-                                    print(f"[DEBUG] Skipping old alert for line {line_code}: {update_time}")
-                                    continue
-                            
-                            alerts.append(mesaj_text)
-                            print(f"[DEBUG] ✅ Alert matched for {line_code}: {mesaj_text[:60]}...")
-            
-            print(f"[DEBUG] Sample HATKODUs found: {sample_codes[:10]}")
+                        if update_time and update_time < cutoff_time:
+                            print(f"[DEBUG] Skipping old alert for line {line_code}: {update_time}")
+                            continue
+                    
+                    alerts.append(mesaj_text)
+                    print(f"[DEBUG] ✅ Alert matched for {line_code}: {mesaj_text[:60]}...")
             
             if alerts:
                 print(f"[DEBUG] ✅ Returning {len(alerts)} alert(s) for line {line_code}")
@@ -213,9 +195,9 @@ class IETTStatusService:
             logger.error(f"Failed to fetch alerts for line {line_code}: {e}")
             print(f"[ERROR] Request failed: {e}")
             return []
-        except ET.ParseError as e:
-            logger.error(f"XML parsing error for alerts: {e}")
-            print(f"[ERROR] XML parse failed: {e}")
+        except json.JSONDecodeError as e:
+            logger.error(f"JSON parsing error for alerts: {e}")
+            print(f"[ERROR] JSON parse failed: {e}")
             return []
         except Exception as e:
             logger.error(f"Unexpected error fetching alerts: {e}")
