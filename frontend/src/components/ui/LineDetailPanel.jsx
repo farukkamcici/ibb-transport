@@ -13,8 +13,7 @@ import {
   Users, 
   Star,
   Minimize2,
-  RotateCcw,
-  Moon
+  RotateCcw
 } from 'lucide-react';
 import TimeSlider from './TimeSlider';
 import CrowdChart from './CrowdChart';
@@ -89,7 +88,7 @@ export default function LineDetailPanel() {
       const targetDate = new Date();
       
       Promise.all([
-        getForecast(selectedLine.id, targetDate),
+        getForecast(selectedLine.id, targetDate, selectedDirection),
         getLineStatus(selectedLine.id, selectedDirection)
       ])
         .then(([forecastData, statusData]) => {
@@ -623,10 +622,7 @@ export default function LineDetailPanel() {
                   </div>
 
                   {/* Card 3: 24h Chart */}
-                  <div className={cn(
-                    "rounded-xl bg-background border border-white/5 overflow-hidden relative",
-                    lineStatus?.status === 'OUT_OF_SERVICE' && "opacity-60"
-                  )}>
+                  <div className="rounded-xl bg-background border border-white/5 overflow-hidden relative">
                     <div className="px-3 py-2 border-b border-white/5">
                       <p className="text-xs font-medium text-gray-400">
                         {t('forecast24h')}
@@ -638,17 +634,7 @@ export default function LineDetailPanel() {
                           <Loader className="animate-spin text-primary" size={20} />
                         </div>
                       ) : (
-                        <>
-                          <CrowdChart data={forecastData} />
-                          {lineStatus?.status === 'OUT_OF_SERVICE' && (
-                            <div className="absolute inset-0 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
-                              <div className="text-center">
-                                <Moon size={24} className="mx-auto mb-2 text-slate-400" />
-                                <p className="text-xs font-semibold text-gray-300">{t('serviceEnded')}</p>
-                              </div>
-                            </div>
-                          )}
-                        </>
+                        <CrowdChart data={forecastData} />
                       )}
                     </div>
                   </div>

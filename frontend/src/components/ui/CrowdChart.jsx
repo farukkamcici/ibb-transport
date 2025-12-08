@@ -14,6 +14,18 @@ const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
 
   const data = payload[0].payload;
+  
+  // Check if out of service
+  if (!data.in_service || data.occupancy_pct === null) {
+    return (
+      <div className="rounded-lg border border-slate-600/50 bg-slate-800/95 p-3 shadow-xl backdrop-blur-sm">
+        <p className="text-xs font-semibold text-gray-400">Hour: {data.hour}:00</p>
+        <p className="text-sm font-bold text-slate-400 mt-1">Out of Service</p>
+        <p className="text-xs text-gray-500 mt-1">No trips scheduled</p>
+      </div>
+    );
+  }
+  
   return (
     <div className="rounded-lg border border-white/10 bg-surface/95 p-3 shadow-xl backdrop-blur-sm">
       <p className="text-xs font-semibold text-gray-400">Hour: {data.hour}:00</p>
@@ -34,10 +46,12 @@ export default function CrowdChart({ data }) {
 
     return data.map(item => ({
       hour: item.hour,
-      occupancy_pct: item.occupancy_pct,
+      // Use null for out-of-service hours to create gaps in the chart
+      occupancy_pct: item.in_service ? item.occupancy_pct : null,
       crowd_level: item.crowd_level,
       predicted_value: item.predicted_value,
-      color: getCrowdColor(item.occupancy_pct),
+      in_service: item.in_service,
+      color: item.in_service ? getCrowdColor(item.occupancy_pct) : '#64748b',
     }));
   }, [data]);
 
@@ -97,6 +111,7 @@ export default function CrowdChart({ data }) {
             fill="url(#colorOccupancy)" 
             strokeWidth={2}
             animationDuration={800}
+            connectNulls={false}
           />
         </AreaChart>
       </ResponsiveContainer>

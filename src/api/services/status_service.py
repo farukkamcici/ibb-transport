@@ -322,8 +322,9 @@ class IETTStatusService:
         logger.info(f"Fetching status for line {line_code}" + (f" direction {direction}" if direction else ""))
         
         # Step 1: Check for alerts (with caching - alerts don't change frequently)
-        # Cache key for alerts only (direction-independent)
-        alerts_cache_key = f"alerts:{line_code}"
+        # Cache key for alerts includes date to ensure fresh data on new day
+        current_date = datetime.now().strftime('%Y-%m-%d')
+        alerts_cache_key = f"alerts:{line_code}:{current_date}"
         
         if alerts_cache_key in _status_cache:
             logger.debug(f"Cache hit for alerts: {line_code}")
@@ -331,6 +332,7 @@ class IETTStatusService:
         else:
             alert_objects = self._fetch_alerts(line_code)
             _status_cache[alerts_cache_key] = alert_objects
+            logger.debug(f"Cached alerts for {line_code} on {current_date}")
         
         if alert_objects:
             # Don't cache the final result - operation hours need fresh check

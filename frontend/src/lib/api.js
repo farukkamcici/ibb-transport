@@ -90,16 +90,22 @@ export const searchLines = async (query) => {
  * Gets the pre-calculated 24-hour forecast for a given line and date.
  * @param {string} lineName
  * @param {Date} date
+ * @param {string} [direction] - Optional direction ('G' or 'D') for direction-specific service hours
  * @returns {Promise<HourlyForecast[]>}
  */
-export const getForecast = async (lineName, date) => {
+export const getForecast = async (lineName, date, direction = null) => {
   if (!lineName) {
     throw new Error('Line name is required');
   }
 
   try {
     const dateString = format(date, 'yyyy-MM-dd');
-    const response = await apiClient.get(`/forecast/${encodeURIComponent(lineName)}?target_date=${dateString}`);
+    const params = { target_date: dateString };
+    if (direction) {
+      params.direction = direction;
+    }
+    
+    const response = await apiClient.get(`/forecast/${encodeURIComponent(lineName)}`, { params });
     
     if (!response.data || !Array.isArray(response.data)) {
       throw new Error('Invalid response format');
