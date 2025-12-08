@@ -79,6 +79,8 @@ def _is_hour_in_service(hour: int, service_hours: Optional[tuple]) -> bool:
     """
     Check if a given hour is within service hours.
     
+    Includes +1 hour buffer after last departure to account for vehicles in transit.
+    
     Args:
         hour: Hour to check (0-23)
         service_hours: Tuple of (first_hour, last_hour) or None
@@ -91,7 +93,9 @@ def _is_hour_in_service(hour: int, service_hours: Optional[tuple]) -> bool:
         return True
     
     first_hour, last_hour = service_hours
-    return first_hour <= hour <= last_hour
+    # Add +1 hour buffer after last departure for vehicles in transit
+    extended_last_hour = min(23, last_hour + 1)
+    return first_hour <= hour <= extended_last_hour
 
 class HourlyForecastResponse(BaseModel):
     hour: int = Field(..., ge=0, le=23, description="Hour of day (0-23)")

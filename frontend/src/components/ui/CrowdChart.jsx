@@ -1,7 +1,7 @@
 // frontend/src/components/ui/CrowdChart.jsx
 'use client';
-import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
-import { useMemo } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceArea } from 'recharts';
+import { useMemo, useState } from 'react';
 
 const getCrowdColor = (occupancy_pct) => {
   if (occupancy_pct >= 70) return '#ef4444';
@@ -39,6 +39,7 @@ const CustomTooltip = ({ active, payload }) => {
 };
 
 export default function CrowdChart({ data }) {
+  
   const formattedData = useMemo(() => {
     if (!data || !Array.isArray(data) || data.length === 0) {
       return [];
@@ -53,6 +54,36 @@ export default function CrowdChart({ data }) {
       in_service: item.in_service,
       color: item.in_service ? getCrowdColor(item.occupancy_pct) : '#64748b',
     }));
+  }, [data]);
+  
+  // Find out-of-service hour ranges for background shading
+  const outOfServiceRanges = useMemo(() => {
+    if (!data || data.length === 0) return [];
+    
+    const ranges = [];
+    let rangeStart = null;
+    
+    for (let i = 0; i < data.length; i++) {
+      const item = data[i];
+      
+      if (!item.in_service) {
+        if (rangeStart === null) {
+          rangeStart = item.hour;
+        }
+      } else {
+        if (rangeStart !== null) {
+          ranges.push({ start: rangeStart, end: data[i - 1].hour + 1 });
+          rangeStart = null;
+        }
+      }
+    }
+    
+    // Handle case where last hours are out of service
+    if (rangeStart !== null) {
+      ranges.push({ start: rangeStart, end: 24 });
+    }
+    
+    return ranges;
   }, [data]);
 
   if (!formattedData.length) {
@@ -84,6 +115,18 @@ export default function CrowdChart({ data }) {
           </defs>
           
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+          
+          {/* Shade out-of-service hours */}
+          {outOfServiceRanges.map((range, idx) => (
+            <ReferenceArea
+              key={idx}
+              x1={range.start}
+              x2={range.end}
+              fill="#1e293b"
+              fillOpacity={0.3}
+              stroke="none"
+            />
+          ))}
 
           <XAxis 
             dataKey="hour" 
@@ -102,7 +145,15 @@ export default function CrowdChart({ data }) {
             tickFormatter={(value) => `${value}%`}
           />
 
-          <Tooltip content={<CustomTooltip />} />
+          <Tooltip 
+            content={<CustomTooltip />}
+            cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '3 3' }}
+            isAnimationActive={false}
+            allowEscapeViewBox={{ x: false, y: true }}
+            shared={false}
+            trigger="hover"
+            wrapperStyle={{ outline: 'none' }}
+          />
 
           <Area 
             type="monotone" 
@@ -112,6 +163,14 @@ export default function CrowdChart({ data }) {
             strokeWidth={2}
             animationDuration={800}
             connectNulls={false}
+            activeDot={{
+              r: 4,
+              fill: '#3b82f6',
+              stroke: '#fff',
+              strokeWidth: 2,
+              style: { cursor: 'pointer' }
+            }}
+            dot={false}
           />
         </AreaChart>
       </ResponsiveContainer>
