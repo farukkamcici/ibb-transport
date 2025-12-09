@@ -4,7 +4,7 @@ API Models Package
 Contains Pydantic models for API request/response validation.
 """
 
-from .metro_models import (
+from .metro_schemas import (
     TimeTableRequest,
     TimeTableResponse,
     AnnouncementRequest,

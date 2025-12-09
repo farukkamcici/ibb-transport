@@ -262,6 +262,5 @@ mlruns/
 **/.DS_Store
 to-do.md
 !frontend/public/data/
-!src/api/models/
 
 /METRO_INTEGRATION.md

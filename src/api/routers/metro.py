@@ -25,7 +25,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Optional
 
-from ..models.metro_models import (
+from ..schemas.metro_schemas import (
     TimeTableRequest,
     TimeTableResponse,
     AnnouncementRequest,
