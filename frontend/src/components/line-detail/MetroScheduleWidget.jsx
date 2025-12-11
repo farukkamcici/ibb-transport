@@ -10,6 +10,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { Clock, Loader, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getCachedSchedule, setCachedSchedule } from '@/lib/metroScheduleCache';
 
 export default function MetroScheduleWidget({ 
   lineCode,
@@ -25,13 +26,24 @@ export default function MetroScheduleWidget({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Fetch full day schedule from backend
+  // Fetch full day schedule from backend with cache
   useEffect(() => {
     if (!stationId || !directionId) return;
 
     const fetchSchedule = async () => {
-      setLoading(true);
-      setError(null);
+      // 1. Check cache first (instant)
+      const cached = getCachedSchedule(stationId, directionId);
+      
+      if (cached) {
+        setSchedule(cached);
+        setLoading(false);
+        setError(null);
+        // Continue to background fetch for freshness
+      } else {
+        setLoading(true);
+      }
+
+      // 2. Fetch fresh data (with or without cache)
       try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/metro/schedule`, {
           method: 'POST',
@@ -42,12 +54,28 @@ export default function MetroScheduleWidget({
           })
         });
         
-        if (!response.ok) throw new Error('Failed to fetch schedule');
+        if (!response.ok) {
+          // If we have cache, don't show error
+          if (cached) {
+            console.warn('Metro API failed, using cached data');
+            return;
+          }
+          throw new Error('Failed to fetch schedule');
+        }
+        
         const data = await response.json();
+        
+        // 3. Update cache and state
+        setCachedSchedule(stationId, directionId, data);
         setSchedule(data);
+        setError(null);
       } catch (err) {
         console.error('Metro schedule fetch error:', err);
-        setError(err.message);
+        
+        // If we have cache, don't show error
+        if (!cached) {
+          setError(err.message);
+        }
       } finally {
         setLoading(false);
       }
