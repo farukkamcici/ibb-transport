@@ -31,6 +31,15 @@ The Istanbul Public Transit Crowding Prediction Platform is a **multilingual, we
 - Distinctive start (green) and end (red) stop indicators
 - Smooth, professional route rendering with rounded polylines
 
+### 🚇 **Metro Network Mode**
+- Metro lines render with official colors, accessibility badges, and accurate station geometry sourced from Metro Istanbul APIs.
+- Station selectors automatically pull valid directions (e.g., Yenikapı → Havalimanı) and keep the forecast/time slider in sync with the chosen branch.
+- Dedicated MetroLayer overlays stops on the map alongside bus/ferry data so you can mix and match trips visually.
+
+### ⚡ **Instant Metro Timetables**
+- A compact widget shows the next departures plus first/last trips; tapping it opens a full-day `MetroScheduleModal` with every train for the selected station/direction.
+- A built-in stale-while-revalidate cache keeps timetables available even if the upstream Metro API stalls, refreshing quietly whenever the network is reachable.
+
 ### 💡 **"Best Time to Travel" Suggestions**
 - Receive personalized recommendations for less crowded departure times
 - Compare multiple time slots to find your optimal travel window
@@ -70,6 +79,10 @@ The crowd score is **contextual and relative** to each transport line's typical 
 - *Historical Context:* 78% more crowded than typical for this time
 - *Peak Reference:* 63% of this line's maximum capacity
 - *Recommendation:* Consider traveling at 21:00 instead (Medium crowding)
+
+### 🚦 Service Awareness
+- Hours that fall outside the published schedule are clearly marked **Out of Service**, so you instantly know when a line is offline instead of staring at an empty chart.
+- Direction-aware status checks mean the app can tell you if only one side of a route (e.g., `G` vs `D`) is paused, keeping the forecast, status banner, and schedule widget perfectly aligned.
 
 ---
 

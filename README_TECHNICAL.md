@@ -362,6 +362,21 @@ The platform implements a comprehensive automated forecast generation system usi
 - **Auto-Fit Bounds**: `MapController` component uses `useMap()` hook to pan/zoom showing full route with 50px padding
 - **Performance Optimization**: `useMemo` for route coordinates and stops to prevent unnecessary recalculations
 
+### Metro Topology & Schedule Integration
+
+**Static Topology Builder** (`src/data_prep/fetch_metro_topology.py`):
+- Calls Metro Istanbul APIs (`GetLines`, `GetStationById`, `GetDirectionsByLineIdAndStationId`) and emits `frontend/public/data/metro_topology.json` containing line metadata, stations, coordinates, accessibility flags, and valid direction IDs.
+- Bundles helper `update_directions.py` to normalize direction labels and IDs before loading into the frontend.
+
+**Backend Metro Router** (`src/api/services/metro_service.py`, `src/api/routers/metro.py`):
+- Loads the JSON topology into memory and exposes `/metro/topology`, `/metro/lines/{code}`, `/metro/schedule`, `/metro/duration`, and admin cache endpoints with dedicated Pydantic schemas in `src/api/schemas.py`.
+- Converts Metro Istanbul timetable responses into the normalized structure (destination, `TimeInfos`, `RemainingMinutes`) consumed by the frontend.
+
+**Frontend Metro Experience**:
+- `useMetroTopology` + `MetroLayer` render Metro lines/stations on the map, auto-fitting bounds and surfacing direction metadata alongside accessibility badges.
+- `MetroScheduleWidget` (compact) and `MetroScheduleModal` (full-day view) share a stale-while-revalidate cache (`frontend/src/lib/metroScheduleCache.js`) keyed by station/direction/day so users see instant timetables even when the upstream API stalls.
+- LineDetailPanel detects metro lines (including the `M1 → M1A` fallback) and wires forecasts, schedule pickers, and live countdowns together for a seamless metro UX.
+
 ---
 
 ## UI Platform Architecture & User Experience Flow
@@ -376,6 +391,7 @@ The platform implements a comprehensive automated forecast generation system usi
 **Charts**: **Recharts** for time-series crowd visualization
 **Internationalization**: **next-intl 4.5.5** for Turkish/English localization
 **PWA**: **@ducanh2912/next-pwa** with offline capabilities and home screen installation
+**Metro UX Modules**: `MetroLayer`, `MetroScheduleWidget`, `MetroScheduleModal`, and a client-side `metroScheduleCache` deliver map overlays, station/direction selectors, and instant timetables for every metro line.
 
 ### Component Architecture
 
@@ -537,6 +553,9 @@ export const getForecast = async (lineName, date) => {
   return response.data;  // Returns: HourlyForecast[]
 };
 ```
+
+- Supports optional `direction=G|D` query params so metro schedules can filter service windows per side.
+- Response objects now include `in_service` flags plus `crowd_level` values such as `Out of Service`, enabling the UI to replace empty charts with explicit service indicators.
 
 **Error Handling Strategy**:
 - **Network Failures**: Graceful degradation with cached data fallback  

@@ -1,6 +1,186 @@
 # Project Logbook
 
-_Last updated: 2025-12-06_
+_Last updated: 2025-12-11_
+
+## Entry · 2025-12-11 22:11 (+03)
+
+### Commit
+- **Hash:** `cfd60e6401f57e3462806d5c312b3ff833ccd219`
+- **Message:** `add metro schedule cache system`
+
+### Summary
+- Implemented a stale-while-revalidate localStorage cache for Metro Istanbul timetables, eliminating repeated 2–3 second API waits and insulating the UI from upstream timeouts.
+
+### Details
+- Added `metroScheduleCache.js` with keyed entries per station/direction/day, 04:00 automatic expiry, and background refresh to keep cached data fresh.
+- Wired the cache into both `MetroScheduleWidget` and `MetroScheduleModal`, allowing instant renders when cached data exists while silent retries keep data current.
+- Included automatic cleanup, quota handling, and developer helpers (`clearMetroScheduleCache`, `getCacheStats`) for observability and manual resets.
+
+### Notes
+- Cached schedules guarantee graceful degradation when the Metro API throttles or fails, giving users reliable timetable visibility even offline.
+
+## Entry · 2025-12-11 21:50 (+03)
+
+### Commit
+- **Hash:** `1ce663b00df1a387d33cfd7144394c9eef98e9b8`
+- **Message:** `Add metro schedule modal for full-day schedule view`
+
+### Summary
+- Built a full-screen Metro schedule modal with station/direction selectors so riders can browse the entire day’s departures and destination context directly inside LineDetailPanel.
+
+### Details
+- Added `MetroScheduleModal` with dropdown station ordering, direction-aware filtering, current destination labels, and next-train highlighting across the grid view.
+- Hooked the modal to the compact widget (tap to expand) and localized new schedule, disclaimer, and CTA strings in `tr.json`/`en.json`.
+- Updated backend `/metro/schedule` adapter to deliver the richer payload consumed by the modal.
+
+### Notes
+- The modal mirrors the bus schedule UX, creating consistent interactions for metro and bus users while surfacing the raw Metro Istanbul service windows.
+
+## Entry · 2025-12-11 21:13 (+03)
+
+### Commit
+- **Hash:** `4f27c3f2d84689f59e4d869a45294d2cd3cf944e`
+- **Message:** `fix: connect metro forecast & schedule end-to-end`
+
+### Summary
+- Finished the metro experience by aligning forecasts, schedule fetches, topology lookups, and translations so every metro line now shows routes, live departures, and 24h forecasts without manual tweaks.
+
+### Details
+- Enabled forecast fetching for metro lines in `LineDetailPanel`, ensured `CrowdChart` renders for metro datasets, and added `direction` awareness when marking hours out of service.
+- Added line-code fallback logic (e.g., map `M1` requests to `M1A`) and normalized Metro API timetable responses to the frontend schema with remaining-minute calculations.
+- Extended Pydantic schemas and locale files to cover new schedule labels, making the entire workflow i18n-ready.
+
+### Notes
+- After this change, metro lines behave identically to buses/ferries in the dashboard: select a line, view live departures, inspect the 24h crowd curve, and trust that state persists per direction.
+
+## Entry · 2025-12-09 22:21 (+03)
+
+### Commit
+- **Hash:** `4056e1f4789b3cae3c973e290b03cc10a693d7b0`
+- **Message:** `remove metro alert feature`
+
+### Summary
+- Rolled back the experimental Metro alert plumbing to simplify the MVP and avoid surfacing partially reliable upstream data.
+
+### Details
+- Deleted the unused `useMetroAlerts` hook, alert API helpers, and backend schema definitions tied to Metro announcements.
+- Trimmed `LineDetailPanel` to only show alert banners driven by the existing bus status system.
+
+### Notes
+- By narrowing scope to reliable schedule + forecast data, the metro feature can ship without confusing users with stale or empty alert states.
+
+## Entry · 2025-12-09 21:26 (+03)
+
+### Commit
+- **Hash:** `fb5b8354114df38f0c4489e0bfd7cac66445b73b`
+- **Message:** `add metro api integration`
+
+### Summary
+- Delivered end-to-end Metro Istanbul integration covering topology ingestion, backend routers, and frontend visualization; follow-up commits `1d00fe4`, `ee57eac`, and `b98497e` refactored schemas and module layout to stabilize the API surface.
+
+### Details
+- Added `fetch_metro_topology.py` to pull lines, stations, directions, and accessibility data into `metro_topology.json`, plus a FastAPI `metro_service`/router exposing topology, schedule, and duration endpoints with Pydantic contracts.
+- Built React hooks (`useMetroTopology`, `useMetroSchedule`) and a `MetroLayer` map overlay so metro lines render with official colors, markers, and direction metadata, reusing the new API client helpers.
+- Updated LineDetailPanel to detect metro lines, show stop selectors, and fetch live departures via the new backend endpoints.
+
+### Notes
+- This is the foundation for subsequent metro UX polish—after this merge the repo gained persistent topology data, backend contract separation, and the frontend plumbing for metro-specific widgets.
+
+## Entry · 2025-12-08 08:39 (+03)
+
+### Commit
+- **Hash:** `273d77961d66c921cb18dee3428068529b7fbea8`
+- **Message:** `fix 24h chart for mobile view`
+
+### Summary
+- Reworked the mobile `CrowdChart` collapse logic so the 24-hour graph animates correctly when the panel is minimized and expanded on smaller screens.
+
+### Details
+- Simplified the conditionals that hide the Recharts canvas on mobile, added explicit height controls, and ensured the chart reflows after interaction.
+- Adjusted `/forecast` responses to include missing metadata required by the new chart props.
+
+### Notes
+- The Forecast tab now keeps context visible on phones, preventing accidental blank charts when toggling sections.
+
+## Entry · 2025-12-08 08:15 (+03)
+
+### Commit
+- **Hash:** `0dc5d66e15d8ea10c09d8c0df5088ba24221a9bd`
+- **Message:** `rev`
+
+### Summary
+- Tightened the 24-hour forecast API to mark out-of-service hours using schedule data and aligned the frontend with the new payload, paving the way for accurate metro direction filtering.
+
+### Details
+- Expanded `/forecast/{line}` to cross-check line schedules (via the schedule service) and emit `in_service` + `crowd_level` overrides when a line isn’t operating.
+- Updated `LineDetailPanel`, `CrowdChart`, and the API client to respect the new structure, showing “Out of Service” states instead of empty gaps.
+- Tuned `status_service` fallbacks so the same schedule intelligence powers both forecasts and status banners.
+
+### Notes
+- With this groundwork, users immediately understand why certain hours lack predictions—especially important for metro lines with shorter service windows.
+
+## Entry · 2025-12-08 07:53 (+03)
+
+### Commit
+- **Hash:** `f24ec9ae6d11bc9b86908729a7b61c7f2585def9`
+- **Message:** `feat(status): improve logging and caching for line status checks`
+
+### Summary
+- Hardened the line status service with richer logging and smarter caching so operational banners remain precise without spamming the IETT API.
+
+### Details
+- Added structured debug/info logs documenting alert payloads and service windows per line, aiding in ops troubleshooting.
+- Reduced redundant alert fetches by caching computed banner content while keeping real-time operational checks uncached for accuracy.
+
+### Notes
+- These diagnostics surfaced quickly while building the metro experience and made it easier to align schedule + status data across bus and metro feeds.
+
+## Entry · 2025-12-08 07:42 (+03)
+
+### Commit
+- **Hash:** `ef1a499546195416314c9cc02a21741448dbc4a0`
+- **Message:** `feat(status): add direction support for line status checks and UI enhancements`
+
+### Summary
+- Introduced direction-specific status lookups so the app can tell riders which side of a line is running, and mirrored that data in the schedule widget.
+
+### Details
+- Extended backend status routes and cache keys with direction codes (`G`/`D`) and passed the parameter through the frontend API client.
+- Updated `ScheduleWidget` to show localized first/last departure chips and ensure direction toggles stay in sync with backend filters.
+
+### Notes
+- Direction-aware service windows are now shared between the status panel, schedule widget, and forecast endpoint, keeping the narrative consistent.
+
+## Entry · 2025-12-06 19:18 (+03)
+
+### Commit
+- **Hash:** `ed02b190f5bb7b77491500f0398a43fbbd0fd8a4`
+- **Message:** `chore(deps): upgrade Next.js and eslint-config-next to version 16.0.7`
+
+### Summary
+- Bumped the frontend toolchain to Next.js 16.0.7 to pick up the latest React 19 fixes, security patches, and linting improvements ahead of the metro work.
+
+### Details
+- Updated `package.json` and `package-lock.json`, refreshed lockfile integrity hashes, and verified `npm run dev` / `npm run build` succeed on the new runtime.
+
+### Notes
+- Keeping Next.js current ensured compatibility with the App Router APIs used heavily by the metro components and modal animations.
+
+## Entry · 2025-12-06 19:08 (+03)
+
+### Commit
+- **Hash:** `2eeb82153d509d5fe5ff44ab61cbfbecb19db0a3`
+- **Message:** `docs: update project log with recent commits and detailed summaries`
+
+### Summary
+- Refreshed `project-log.md` and `project-summary.md` to capture the late-November/early-December backlog before starting the metro sprint.
+
+### Details
+- Added structured entries for recent modeling, user feedback, schedule, and status features, and bumped the “last updated” metadata.
+
+### Notes
+- This commit provided the baseline documentation snapshot we’re currently extending.
+
 
 ## Entry · 2025-12-06 18:00 (+03)
 
