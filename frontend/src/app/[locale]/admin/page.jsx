@@ -8,6 +8,7 @@ import SchedulerPanel from '@/components/admin/SchedulerPanel';
 import ForecastCoverage from '@/components/admin/ForecastCoverage';
 import UserManagement from '@/components/admin/UserManagement';
 import ReportsPanel from '@/components/admin/ReportsPanel';
+import MetroCachePanel from '@/components/admin/MetroCachePanel';
 import ProtectedRoute from '@/components/admin/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -16,6 +17,7 @@ const tabs = [
   { id: 'dashboard', name: 'Dashboard', icon: '📊' },
   { id: 'operations', name: 'Operations', icon: '⚡' },
   { id: 'scheduler', name: 'Scheduler', icon: '⏰' },
+  { id: 'metro-cache', name: 'Metro Cache', icon: '🚇' },
   { id: 'reports', name: 'User Reports', icon: '📋' },
   { id: 'users', name: 'Users', icon: '👥' },
   { id: 'jobs', name: 'Job History', icon: '📜' },
@@ -73,6 +75,7 @@ function AdminDashboardContent() {
   const [cleanupConfirmText, setCleanupConfirmText] = useState("");
   const [isCleaningUp, setIsCleaningUp] = useState(false);
   const [newReportsCount, setNewReportsCount] = useState(0);
+  const [metroCacheStatus, setMetroCacheStatus] = useState(null);
 
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -84,19 +87,21 @@ function AdminDashboardContent() {
   const fetchData = async () => {
     try {
       const headers = getAuthHeaders();
-      const [statsRes, jobsRes, fsStatsRes, schedRes, covRes, reportsStatsRes] = await Promise.all([
+      const [statsRes, jobsRes, fsStatsRes, schedRes, covRes, reportsStatsRes, metroCacheRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, { headers }),
         axios.get(`${API_URL}/admin/jobs?limit=${jobLimit}`, { headers }),
         axios.get(`${API_URL}/admin/feature-store/stats`, { headers }).catch(() => ({ data: null })),
         axios.get(`${API_URL}/admin/scheduler/status`, { headers }).catch(() => ({ data: null })),
         axios.get(`${API_URL}/admin/forecasts/coverage`, { headers }).catch(() => ({ data: null })),
-        axios.get(`${API_URL}/admin/reports/stats/summary`, { headers }).catch(() => ({ data: null }))
+        axios.get(`${API_URL}/admin/reports/stats/summary`, { headers }).catch(() => ({ data: null })),
+        axios.get(`${API_URL}/admin/metro/cache/status`, { headers }).catch(() => ({ data: null }))
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);
       setFeatureStoreStats(fsStatsRes.data);
       setSchedulerStatus(schedRes.data);
       setForecastCoverage(covRes.data);
+      setMetroCacheStatus(metroCacheRes.data);
       
       if (reportsStatsRes.data) {
         setNewReportsCount(reportsStatsRes.data.by_status?.new || 0);
@@ -451,6 +456,15 @@ function AdminDashboardContent() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Metro Cache */}
+        {activeTab === 'metro-cache' && (
+          <MetroCachePanel 
+            status={metroCacheStatus}
+            getAuthHeaders={getAuthHeaders}
+            onRefresh={fetchData}
+          />
         )}
 
         {/* Scheduler Tab */}

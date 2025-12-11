@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, BackgroundTasks, HTTPException
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from pydantic import BaseModel
 from datetime import date, timedelta, datetime
 import lightgbm as lgb
@@ -11,6 +11,7 @@ from ..state import get_model, get_feature_store
 from ..services.batch_forecast import run_daily_forecast_job
 from ..services.store import FeatureStore
 from ..services.route_service import route_service
+from ..services.metro_schedule_cache import metro_schedule_cache_service
 from ..models import JobExecution, TransportLine, DailyForecast, AdminUser
 from ..auth import authenticate_user, create_access_token, get_current_user, get_password_hash
 from .. import scheduler as sched
@@ -58,6 +59,14 @@ class CreateAdminUserRequest(BaseModel):
 class ChangePasswordRequest(BaseModel):
     current_password: str
     new_password: str
+
+
+class MetroCacheRefreshRequest(BaseModel):
+    mode: str = "all"  # 'all' or 'pair'
+    station_id: Optional[int] = None
+    direction_id: Optional[int] = None
+    target_date: Optional[date] = None
+    force: bool = False
 
 
 # ============================================
@@ -246,6 +255,59 @@ def trigger_quality_check_manually(current_user: AdminUser = Depends(get_current
     """Manually trigger data quality check"""
     sched.trigger_quality_check_now()
     return {"message": "Data quality check triggered"}
+
+
+@router.get("/admin/metro/cache/status")
+def get_metro_cache_status(
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """Return metro timetable cache stats and runtime state."""
+    status = metro_schedule_cache_service.get_status(db)
+    status['runtime'] = sched.get_metro_cache_runtime_state()
+    return status
+
+
+@router.post("/admin/metro/cache/refresh")
+def refresh_metro_cache(
+    payload: MetroCacheRefreshRequest,
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """Trigger metro timetable refresh for all pairs or a single station/direction."""
+    target_date = payload.target_date or date.today()
+
+    if payload.mode == 'pair':
+        if not (payload.station_id and payload.direction_id):
+            raise HTTPException(status_code=400, detail="station_id and direction_id are required for pair refresh")
+        sched.trigger_single_metro_pair_refresh(payload.station_id, payload.direction_id, target_date)
+        return {
+            "message": "Metro pair refresh scheduled",
+            "station_id": payload.station_id,
+            "direction_id": payload.direction_id,
+            "target_date": target_date
+        }
+
+    sched.trigger_metro_prefetch_now(target_date, payload.force)
+    return {
+        "message": "Metro timetable prefetch scheduled",
+        "target_date": target_date,
+        "force": payload.force
+    }
+
+
+@router.post("/admin/metro/cache/cleanup")
+def cleanup_metro_cache(
+    days: int = 5,
+    db: Session = Depends(get_db),
+    current_user: AdminUser = Depends(get_current_user)
+):
+    """Manually purge metro timetable cache entries older than N days."""
+    deleted = metro_schedule_cache_service.cleanup_old_entries(db, older_than_days=days)
+    return {
+        "message": f"Deleted {deleted} cached timetable rows",
+        "deleted": deleted,
+        "cutoff_days": days
+    }
 
 
 @router.delete("/admin/forecasts/date/{target_date}")

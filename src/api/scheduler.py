@@ -10,11 +10,12 @@ from datetime import datetime, timedelta, date
 from sqlalchemy.orm import Session
 import logging
 import traceback
-from typing import Optional
+from typing import Dict, List, Optional
 
 from .db import SessionLocal
 from .models import DailyForecast, JobExecution
 from .services.batch_forecast import run_daily_forecast_job
+from .services.metro_schedule_cache import metro_schedule_cache_service
 from .state import get_model, get_feature_store
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,16 @@ job_stats = {
     'daily_forecast': {'last_run': None, 'last_status': None, 'run_count': 0, 'error_count': 0},
     'cleanup_old_forecasts': {'last_run': None, 'last_status': None, 'run_count': 0, 'error_count': 0},
     'data_quality_check': {'last_run': None, 'last_status': None, 'run_count': 0, 'error_count': 0},
+    'metro_schedule_prefetch': {'last_run': None, 'last_status': None, 'run_count': 0, 'error_count': 0},
+}
+
+metro_cache_state: Dict[str, Optional[Dict]] = {
+    'pending_pairs': {},
+    'last_run': None,
+    'last_success': None,
+    'last_result': None,
+    'retry_job_id': None,
+    'current_valid_for': None
 }
 
 
@@ -250,6 +261,185 @@ def data_quality_check():
 
 
 # ============================================================================
+# JOB 4: METRO SCHEDULE PREFETCH
+# ============================================================================
+
+def prefetch_metro_schedules(target_date: Optional[date] = None, force: bool = False):
+    """Fetch and persist metro timetables for all station/direction pairs."""
+    job_name = 'metro_schedule_prefetch'
+    target = target_date or date.today()
+
+    try:
+        logger.info("🚇 [CRON] Starting metro timetable prefetch for %s", target)
+        db = SessionLocal()
+        try:
+            result = metro_schedule_cache_service.prefetch_all_schedules(
+                db,
+                valid_for=target,
+                force=force
+            )
+        finally:
+            db.close()
+
+        job_stats[job_name]['last_run'] = datetime.now()
+        job_stats[job_name]['run_count'] += 1
+        job_stats[job_name]['last_status'] = 'success' if result.get('failed') == 0 else 'partial'
+
+        metro_cache_state['last_run'] = datetime.now()
+        metro_cache_state['last_result'] = result
+        metro_cache_state['current_valid_for'] = target
+
+        failed_pairs = result.get('failed_pairs', [])
+        if failed_pairs:
+            _set_pending_pairs(failed_pairs, target)
+            _schedule_metro_retry_job()
+            job_stats[job_name]['last_status'] = 'partial'
+            logger.warning("🚇 [CRON] Metro prefetch completed with %s failures", len(failed_pairs))
+        else:
+            metro_cache_state['pending_pairs'] = {}
+            metro_cache_state['last_success'] = datetime.now()
+            _cancel_metro_retry_job()
+            logger.info("✅ [CRON] Metro timetables cached for all %s pairs", result.get('total_pairs'))
+
+        return result
+
+    except Exception as exc:
+        job_stats[job_name]['error_count'] += 1
+        job_stats[job_name]['last_status'] = 'failed'
+        logger.error("❌ [CRON] Metro timetable prefetch failed: %s", exc)
+        logger.error(traceback.format_exc())
+        raise
+
+
+def retry_failed_metro_pairs():
+    """Retry fetching pending metro schedule pairs."""
+    pending = metro_cache_state.get('pending_pairs') or {}
+    if not pending:
+        _cancel_metro_retry_job()
+        return
+
+    target = metro_cache_state.get('current_valid_for') or date.today()
+    db = SessionLocal()
+    try:
+        resolutions = []
+        for key, info in list(pending.items()):
+            result = metro_schedule_cache_service.refresh_single_pair(
+                db,
+                station_id=info['station_id'],
+                direction_id=info['direction_id'],
+                valid_for=target,
+                force=True
+            )
+
+            if result.get('status') == 'success':
+                resolutions.append(key)
+            else:
+                info['attempts'] = info.get('attempts', 0) + 1
+                info['last_error'] = result.get('error')
+                if info['attempts'] >= 10:
+                    info['abandoned'] = True
+
+        for key in resolutions:
+            pending.pop(key, None)
+
+        if not pending:
+            metro_cache_state['last_success'] = datetime.now()
+            _cancel_metro_retry_job()
+            logger.info("✅ All pending metro schedule pairs recovered")
+
+    finally:
+        db.close()
+
+
+def _set_pending_pairs(failed_pairs: List[Dict], valid_for: date):
+    pending = {}
+    for pair in failed_pairs:
+        key = f"{pair['station_id']}:{pair['direction_id']}"
+        pending[key] = {
+            'station_id': pair['station_id'],
+            'direction_id': pair['direction_id'],
+            'line_code': pair.get('line_code'),
+            'station_name': pair.get('station_name'),
+            'direction_name': pair.get('direction_name'),
+            'last_error': pair.get('error'),
+            'attempts': 0,
+            'valid_for': valid_for.isoformat()
+        }
+    metro_cache_state['pending_pairs'] = pending
+
+
+def _schedule_metro_retry_job():
+    if metro_cache_state.get('retry_job_id'):
+        return
+    job = scheduler.add_job(
+        retry_failed_metro_pairs,
+        trigger=IntervalTrigger(minutes=30, timezone="Europe/Istanbul"),
+        id='metro_schedule_retry',
+        name='Retry Failed Metro Timetables',
+        replace_existing=True
+    )
+    metro_cache_state['retry_job_id'] = job.id
+    logger.info("🔁 Scheduled metro timetable retry job")
+
+
+def _cancel_metro_retry_job():
+    job_id = metro_cache_state.get('retry_job_id')
+    if job_id:
+        try:
+            scheduler.remove_job(job_id)
+        except Exception:
+            pass
+        metro_cache_state['retry_job_id'] = None
+
+
+def get_metro_cache_runtime_state() -> Dict:
+    return {
+        'pending_pairs': list((metro_cache_state.get('pending_pairs') or {}).values()),
+        'last_run': metro_cache_state.get('last_run').isoformat() if metro_cache_state.get('last_run') else None,
+        'last_success': metro_cache_state.get('last_success').isoformat() if metro_cache_state.get('last_success') else None,
+        'last_result': metro_cache_state.get('last_result'),
+        'retry_job_active': bool(metro_cache_state.get('retry_job_id')),
+        'target_date': metro_cache_state.get('current_valid_for').isoformat() if metro_cache_state.get('current_valid_for') else None
+    }
+
+
+def trigger_metro_prefetch_now(target_date: Optional[date] = None, force: bool = False):
+    scheduler.add_job(
+        prefetch_metro_schedules,
+        'date',
+        run_date=datetime.now(),
+        args=[target_date, force],
+        id='manual_metro_prefetch',
+        replace_existing=True
+    )
+
+
+def trigger_single_metro_pair_refresh(station_id: int, direction_id: int, valid_for: Optional[date] = None):
+    scheduler.add_job(
+        refresh_single_metro_pair_job,
+        'date',
+        run_date=datetime.now(),
+        args=[station_id, direction_id, valid_for],
+        id=f'metro_pair_refresh_{station_id}_{direction_id}',
+        replace_existing=True
+    )
+
+
+def refresh_single_metro_pair_job(station_id: int, direction_id: int, valid_for: Optional[date] = None):
+    db = SessionLocal()
+    try:
+        metro_schedule_cache_service.refresh_single_pair(
+            db,
+            station_id=station_id,
+            direction_id=direction_id,
+            valid_for=valid_for or date.today(),
+            force=True
+        )
+    finally:
+        db.close()
+
+
+# ============================================================================
 # SCHEDULER LIFECYCLE MANAGEMENT
 # ============================================================================
 
@@ -290,6 +480,17 @@ def start_scheduler():
         name="Verify Data Quality",
         replace_existing=True,
         misfire_grace_time=3600
+    )
+
+    # JOB 4: Metro Schedule Prefetch - Every day at 03:15 Istanbul time
+    scheduler.add_job(
+        prefetch_metro_schedules,
+        trigger=CronTrigger(hour=3, minute=15, timezone="Europe/Istanbul"),
+        id="metro_schedule_prefetch",
+        name="Prefetch Metro Timetables",
+        replace_existing=True,
+        misfire_grace_time=3600,
+        coalesce=True
     )
     
     # Start the scheduler

@@ -243,6 +243,30 @@ class MetroService:
         
         return results
     
+    def get_station_direction_pairs(self) -> List[Dict]:
+        """
+        Enumerate all station/direction combinations across the network.
+
+        Returns:
+            List of dicts with metadata for each pair
+        """
+        pairs: List[Dict] = []
+        for line_code, line_data in self.get_lines().items():
+            stations = line_data.get('stations', []) or []
+            for station in stations:
+                directions = station.get('directions', []) or []
+                for direction in directions:
+                    pairs.append({
+                        'line_code': line_code,
+                        'line_id': line_data.get('id'),
+                        'line_name': line_data.get('description') or line_data.get('name'),
+                        'station_id': station.get('id'),
+                        'station_name': station.get('description') or station.get('name'),
+                        'direction_id': direction.get('id'),
+                        'direction_name': direction.get('name')
+                    })
+        return pairs
+    
     def get_metadata(self) -> Dict:
         """
         Get topology metadata.

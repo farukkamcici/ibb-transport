@@ -4,7 +4,22 @@
 Metro Istanbul API is slow (1-3 seconds) and sometimes times out, causing poor UX.
 
 ## Solution
-**LocalStorage Cache with Stale-While-Revalidate Pattern**
+**Remote Prefetch + LocalStorage Stale-While-Revalidate**
+
+As of this change the backend now pre-fetches every metro timetable once per day
+and stores the raw `GetTimeTable` payloads inside the `metro_schedules` table in
+Postgres. An APScheduler cron job (`metro_schedule_prefetch`) runs at 03:15
+(Europe/Istanbul), iterates over all station/direction pairs defined in
+`metro_topology.json`, fetches the data from Metro İstanbul, and persists it with
+the target service date. Failed pairs are automatically retried every 30 minutes
+until a healthy response is stored, and stale rows older than five days are
+purged.
+
+The API endpoint (`POST /metro/schedule`) now serves data from this cache first
+and only falls back to the upstream API when a cache miss occurs. This keeps the
+runtime API fast and shields the UI from upstream outages. The frontend
+LocalStorage cache described below still applies and now builds on top of the
+server-side snapshot.
 
 ### Cache Behavior
 
@@ -197,6 +212,13 @@ import { getCacheStats } from '@/lib/metroScheduleCache';
 const stats = getCacheStats();
 console.log(`Cache: ${stats.entries} entries, ${stats.sizeKB} KB`);
 ```
+
+## Backend Prefetch Pipeline Summary
+
+- **Persistent cache**: Postgres table `metro_schedules` stores raw Metro API payloads per `(station_id, direction_id, valid_for)` with metadata (line code, fetch status, error message).
+- **Cron jobs**: `metro_schedule_prefetch` seeds the table daily at 03:15 (Europe/Istanbul). `metro_schedule_retry` automatically reruns every 30 minutes for pairs that previously failed until they succeed or hit the attempt cap. Entries older than five days are deleted after each run.
+- **API fallback**: `/metro/schedule` responds from the cache first, then attempts a live fetch and stores the result. If the upstream request fails it falls back to the latest stored day (up to 7 days old) so the UI keeps working without exposing errors to users.
+- **Admin controls**: New endpoints (`/admin/metro/cache/status`, `/admin/metro/cache/refresh`, `/admin/metro/cache/cleanup`) power the admin panel, enabling operators to monitor freshness, view pending pairs, trigger manual refreshes (all or per station) and purge historical rows on demand.
 
 ---
 

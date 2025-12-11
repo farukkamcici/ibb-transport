@@ -17,12 +17,12 @@ Author: Backend Team
 Date: 2025-12-08
 """
 
-from fastapi import APIRouter, HTTPException, Body
+from fastapi import APIRouter, HTTPException, Body, Depends
 from cachetools import TTLCache
-import requests
 import logging
-from datetime import datetime
+from datetime import datetime, date
 from typing import List, Dict, Optional
+from sqlalchemy.orm import Session
 
 from ..schemas import (
     TimeTableRequest,
@@ -36,6 +36,10 @@ from ..schemas import (
     MetroStationInfo
 )
 from ..services.metro_service import metro_service
+from ..services.metro_schedule_cache import metro_schedule_cache_service
+from ..clients.metro_api import metro_api_client
+from ..db import get_db
+from ..models import MetroScheduleCache
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/metro", tags=["Metro"])
@@ -43,17 +47,7 @@ router = APIRouter(prefix="/metro", tags=["Metro"])
 # Metro Istanbul API Configuration
 METRO_API_BASE = "https://api.ibb.gov.tr/MetroIstanbul/api/MetroMobile/V2"
 
-# HTTP Session
-session = requests.Session()
-session.headers.update({
-    'User-Agent': 'IBB-Transport-Platform/1.0',
-    'Accept': 'application/json',
-    'Content-Type': 'application/json'
-})
-
 # Cache Configuration
-# Schedule: 60 seconds (real-time data)
-_schedule_cache = TTLCache(maxsize=500, ttl=60)
 
 # Travel Duration: 24 hours (static infrastructure data)
 _duration_cache = TTLCache(maxsize=1000, ttl=86400)
@@ -199,10 +193,10 @@ async def get_line_stations_live(line_code: str):
 
     url = f"{METRO_API_BASE}/GetStationById/{line_id}"
     try:
-        response = session.get(url, timeout=10)
+        response = metro_api_client.get(url, timeout=10)
         response.raise_for_status()
         payload = response.json()
-    except requests.RequestException as exc:
+    except Exception as exc:
         logger.error(f"Metro station fetch failed for {line_code}: {exc}")
         raise HTTPException(status_code=502, detail="Failed to fetch metro stations from Metro Istanbul API")
 
@@ -297,22 +291,14 @@ async def search_stations(q: str):
     summary="Get Metro Train Schedule",
     description="""
     Fetches full day schedule or upcoming trains based on request.
-    
-    **Required from Frontend:**
-    - BoardingStationId: Get from metro_topology.json
-    - DirectionId: Get from metro_topology.json (station.directions)
-    - DateTime: Optional - if not provided, returns full day schedule (raw format)
-    
-    **Caching:** 60 seconds TTL for upcoming trains, 24h for full schedule
-    
-    **Upstream API:** POST /GetTimeTable
-    
-    **Response Modes:**
-    - With DateTime: Returns transformed upcoming trains (TimeTableResponse)
-    - Without DateTime: Returns raw full day schedule (MetroScheduleResponse)
+    Data is served from the pre-fetched metro schedule cache when available,
+    falling back to the upstream Metro Istanbul API as needed.
     """
 )
-async def get_train_schedule(request: TimeTableRequest = Body(...)):
+async def get_train_schedule(
+    request: TimeTableRequest = Body(...),
+    db: Session = Depends(get_db)
+):
     """
     Get train departure schedule.
     
@@ -328,57 +314,58 @@ async def get_train_schedule(request: TimeTableRequest = Body(...)):
         HTTPException 404: Station/direction not found
         HTTPException 500: Metro API error
     """
-    # Build cache key
-    cache_key = f"schedule:{request.BoardingStationId}:{request.DirectionId}"
-    
-    # Check cache
-    if cache_key in _schedule_cache:
-        logger.debug(f"Cache hit for schedule: {cache_key}")
-        return _schedule_cache[cache_key]
-    
-    logger.info(f"Fetching schedule for station {request.BoardingStationId}, direction {request.DirectionId}")
-    
-    try:
-        # Prepare request payload (always omit DateTime to get full schedule)
-        payload = {
-            "BoardingStationId": request.BoardingStationId,
-            "DirectionId": request.DirectionId
-        }
-        
-        # Call Metro API
-        response = session.post(
-            f"{METRO_API_BASE}/GetTimeTable",
-            json=payload,
-            timeout=10
-        )
-        response.raise_for_status()
-        raw_data = response.json()
-        
-        # Validate response
-        if not raw_data.get('Success'):
-            error_msg = raw_data.get('Error', {}).get('Message', 'Unknown error')
-            raise HTTPException(
-                status_code=404,
-                detail=f"Metro API error: {error_msg}"
+    today = date.today()
+    cached_payload, is_stale, record = metro_schedule_cache_service.get_cached_schedule(
+        db,
+        request.BoardingStationId,
+        request.DirectionId,
+        valid_for=today,
+        max_stale_days=2
+    )
+
+    if cached_payload:
+        if is_stale:
+            logger.warning(
+                "Serving stale metro schedule for station=%s direction=%s (valid_for=%s)",
+                request.BoardingStationId,
+                request.DirectionId,
+                record.valid_for if record else today
             )
-        
-        # Return RAW schedule (contains all day times)
-        # Frontend will handle transformation for display
-        _schedule_cache[cache_key] = raw_data
-        return raw_data
-        
-    except requests.exceptions.Timeout:
-        logger.error("Metro API timeout")
-        raise HTTPException(
-            status_code=504,
-            detail="Metro API timeout - please try again"
+        return cached_payload
+
+    pair_meta = metro_schedule_cache_service.get_pair_metadata(request.BoardingStationId, request.DirectionId)
+    if not pair_meta:
+        raise HTTPException(status_code=404, detail="Station/direction combination not found in topology")
+
+    try:
+        payload = metro_schedule_cache_service.fetch_schedule_from_api(
+            request.BoardingStationId,
+            request.DirectionId
         )
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Metro API request failed: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to fetch train schedule"
+        metro_schedule_cache_service.store_schedule(
+            db,
+            station_id=request.BoardingStationId,
+            direction_id=request.DirectionId,
+            line_code=pair_meta.get('line_code'),
+            station_name=pair_meta.get('station_name'),
+            direction_name=pair_meta.get('direction_name'),
+            valid_for=today,
+            payload=payload
         )
+        return payload
+    except RuntimeError as exc:
+        logger.error("Metro API timeout/failure for station=%s direction=%s: %s", request.BoardingStationId, request.DirectionId, exc)
+        fallback_payload, _, _ = metro_schedule_cache_service.get_cached_schedule(
+            db,
+            request.BoardingStationId,
+            request.DirectionId,
+            valid_for=None,
+            max_stale_days=7
+        )
+        if fallback_payload:
+            logger.warning("Returning last known metro schedule due to upstream failure")
+            return fallback_payload
+        raise HTTPException(status_code=504, detail="Metro API timeout - please try again later")
 
 
 def _transform_schedule_response(raw_data: dict) -> dict:
@@ -515,7 +502,7 @@ async def get_travel_duration(request: TimeTableRequest = Body(...)):
         }
         
         # Call Metro API
-        response = session.post(
+        response = metro_api_client.post(
             f"{METRO_API_BASE}/GetStationBetweenTime",
             json=payload,
             timeout=10
@@ -536,7 +523,7 @@ async def get_travel_duration(request: TimeTableRequest = Body(...)):
         
         return data
         
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         logger.error(f"Failed to fetch travel duration: {e}")
         raise HTTPException(
             status_code=500,
@@ -551,10 +538,10 @@ async def get_travel_duration(request: TimeTableRequest = Body(...)):
 @router.post(
     "/admin/clear-cache",
     summary="Clear Metro Data Cache",
-    description="Admin endpoint to manually clear all metro-related caches",
+    description="Admin endpoint to manually clear metro-related caches",
     tags=["Admin", "Metro"]
 )
-async def clear_metro_cache(cache_type: Optional[str] = None):
+async def clear_metro_cache(cache_type: Optional[str] = None, db: Session = Depends(get_db)):
     """
     Clear metro data caches.
     
@@ -567,9 +554,9 @@ async def clear_metro_cache(cache_type: Optional[str] = None):
     cleared = []
     
     if cache_type in [None, 'schedule']:
-        count = len(_schedule_cache)
-        _schedule_cache.clear()
-        cleared.append(f"schedule ({count} entries)")
+        deleted = db.query(MetroScheduleCache).delete()
+        db.commit()
+        cleared.append(f"schedule ({deleted} rows)")
     
     if cache_type in [None, 'duration']:
         count = len(_duration_cache)

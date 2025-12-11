@@ -115,42 +115,46 @@ export default function MetroStationInfoCard({ station, lineName, directionId, o
   }
 
   return (
-    <div className="pointer-events-auto absolute bottom-24 left-4 z-[950] w-80 rounded-2xl border border-white/10 bg-slate-900/95 p-4 shadow-2xl backdrop-blur">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-slate-400">
-            <TrainFront className="h-3.5 w-3.5 text-primary" />
-            <span>{lineName}</span>
-            {activeDirection?.name && (
-              <span className="text-slate-300">• {activeDirection.name}</span>
-            )}
+    <div className="pointer-events-none absolute inset-0 z-[950] flex items-start justify-center px-4 pt-4 md:items-end md:justify-end md:px-10 md:pb-10 md:pt-0">
+      <div className="pointer-events-auto w-full max-w-xs rounded-2xl border border-white/10 bg-slate-900/95 p-4 shadow-2xl backdrop-blur-xl md:max-w-sm md:p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-wide text-slate-400">
+              <TrainFront className="h-3.5 w-3.5 text-primary" />
+              <span className="font-semibold text-white/80">{lineName}</span>
+              {activeDirection?.name && (
+                <span className="text-slate-300">• {activeDirection.name}</span>
+              )}
+            </div>
+            <h3 className="mt-1 text-lg font-semibold text-white truncate">
+              {station.description || station.name}
+            </h3>
           </div>
-          <h3 className="mt-1 text-lg font-semibold text-white">
-            {station.description || station.name}
-          </h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full border border-white/10 p-1 text-slate-300 transition hover:border-white/30 hover:text-white"
+            aria-label={tCommon('close')}
+          >
+            <X size={14} />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="rounded-full border border-white/10 p-1 text-slate-300 transition hover:border-white/30 hover:text-white"
-          aria-label={tCommon('close')}
-        >
-          <X size={14} />
-        </button>
-      </div>
 
-      <div className="mt-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
-          {tSchedule('liveArrivals')}
-        </p>
-        {content}
-      </div>
+        <div className="mt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 mb-2">
+            {tSchedule('liveArrivals')}
+          </p>
+          <div className="max-h-[50vh] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700/60 scrollbar-track-transparent">
+            {content}
+          </div>
+        </div>
 
-      {lastUpdatedLabel && activeDirection && (
-        <p className="mt-3 text-[11px] text-slate-500">
-          {lastUpdatedLabel}
-        </p>
-      )}
+        {lastUpdatedLabel && activeDirection && (
+          <p className="mt-3 text-[11px] text-slate-500">
+            {lastUpdatedLabel}
+          </p>
+        )}
+      </div>
     </div>
   );
 }

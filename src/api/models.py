@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Date, Float, UniqueConstraint, DateTime, Text, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, Date, Float, UniqueConstraint, DateTime, Text, JSON, Enum as SQLEnum
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 import enum
@@ -69,3 +69,24 @@ class UserReport(Base):
     contact_email = Column(String, nullable=True)
     status = Column(String, default="new", index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+
+class MetroScheduleCache(Base):
+    """Daily snapshot of Metro Istanbul timetables per station/direction."""
+    __tablename__ = "metro_schedules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    station_id = Column(Integer, nullable=False, index=True)
+    direction_id = Column(Integer, nullable=False, index=True)
+    line_code = Column(String, nullable=True, index=True)
+    station_name = Column(String, nullable=True)
+    direction_name = Column(String, nullable=True)
+    valid_for = Column(Date, nullable=False, index=True)
+    payload = Column(JSON, nullable=False)
+    fetched_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    source_status = Column(String, nullable=False, default="SUCCESS")
+    error_message = Column(Text, nullable=True)
+
+    __table_args__ = (
+        UniqueConstraint('station_id', 'direction_id', 'valid_for', name='uq_station_direction_valid_date'),
+    )
