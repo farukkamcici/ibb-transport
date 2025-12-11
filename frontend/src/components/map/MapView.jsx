@@ -10,7 +10,6 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { useEffect, useMemo, useState } from 'react';
 import useRoutePolyline from '@/hooks/useRoutePolyline';
 import useMetroTopology from '@/hooks/useMetroTopology';
-import { getMetroStations } from '@/lib/metroApi';
 
 const CENTER = [41.0082, 28.9784]; // Istanbul coordinates
 
@@ -40,12 +39,10 @@ function MapController({ routeCoordinates }) {
 }
 
 export default function MapView() {
-  const { userLocation, selectedLine, selectedDirection, showRoute } = useAppStore();
+  const { userLocation, selectedLine, selectedDirection, showRoute, metroDirectionSelection } = useAppStore();
   const { getPolyline, getRouteStops } = useRoutePolyline();
-  const { getLine } = useMetroTopology();
+  const { getLine, loading: topologyLoading } = useMetroTopology();
   const [routeCoordinates, setRouteCoordinates] = useState([]);
-  const [metroStations, setMetroStations] = useState([]);
-  const [metroStationLoading, setMetroStationLoading] = useState(false);
   const [activeStationCard, setActiveStationCard] = useState(null);
   
   // Determine if selected line is metro
@@ -58,10 +55,8 @@ export default function MapView() {
   const canonicalMetroLine = useMemo(() => {
     if (!isMetroLine || !selectedLine?.id) return null;
     const topoLine = getLine(selectedLine.id);
-    if (topoLine) {
-      return { code: topoLine.name || selectedLine.id, data: topoLine };
-    }
-    return { code: selectedLine.id, data: null };
+    if (!topoLine) return null;
+    return { code: topoLine.name || selectedLine.id, data: topoLine };
   }, [isMetroLine, selectedLine, getLine]);
 
   useEffect(() => {
@@ -85,38 +80,26 @@ export default function MapView() {
     };
   }, [showRoute, selectedLine, selectedDirection, getPolyline, isMetroLine]);
 
+  const shouldRenderMetroRoute = Boolean(isMetroLine && canonicalMetroLine?.code && canonicalMetroLine?.data);
+
+  const baseMetroStations = useMemo(() => {
+    if (!canonicalMetroLine?.data?.stations) {
+      return [];
+    }
+    return [...canonicalMetroLine.data.stations].sort((a, b) => a.order - b.order);
+  }, [canonicalMetroLine]);
+
   useEffect(() => {
-    let cancelled = false;
-    if (showRoute && isMetroLine && canonicalMetroLine?.code) {
-      setMetroStationLoading(true);
-      setActiveStationCard(null);
-      getMetroStations(canonicalMetroLine.code)
-        .then((data) => {
-          if (cancelled) return;
-          const stations = (data?.stations || []).sort((a, b) => a.order - b.order);
-          setMetroStations(stations);
-        })
-        .catch((err) => {
-          console.error('Failed to load metro stations:', err);
-          if (!cancelled) {
-            const fallbackStations = canonicalMetroLine?.data?.stations || [];
-            setMetroStations(fallbackStations);
-          }
-        })
-        .finally(() => {
-          if (!cancelled) {
-            setMetroStationLoading(false);
-          }
-        });
-    } else {
-      setMetroStations([]);
+    if (!shouldRenderMetroRoute) {
       setActiveStationCard(null);
     }
+  }, [shouldRenderMetroRoute]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [showRoute, isMetroLine, canonicalMetroLine]);
+  useEffect(() => {
+    if (canonicalMetroLine?.code) {
+      setActiveStationCard(null);
+    }
+  }, [canonicalMetroLine?.code]);
 
   const routeStops = useMemo(() => {
     // Only show bus route stops if not metro (metro uses MetroLayer)
@@ -124,6 +107,38 @@ export default function MapView() {
       ? getRouteStops(selectedLine.id, selectedDirection) 
       : [];
   }, [showRoute, selectedLine, selectedDirection, getRouteStops, isMetroLine]);
+
+  const activeMetroDirectionId = useMemo(() => {
+    if (!shouldRenderMetroRoute || !metroDirectionSelection?.lineCode || !canonicalMetroLine?.code) {
+      return null;
+    }
+    return metroDirectionSelection.lineCode === canonicalMetroLine.code
+      ? metroDirectionSelection.directionId
+      : null;
+  }, [metroDirectionSelection, canonicalMetroLine, shouldRenderMetroRoute]);
+
+  const orderedMetroStations = useMemo(() => {
+    if (!baseMetroStations || baseMetroStations.length === 0) {
+      return [];
+    }
+
+    if (!activeMetroDirectionId) {
+      return baseMetroStations;
+    }
+
+    const firstStation = baseMetroStations[0];
+    const lastStation = baseMetroStations[baseMetroStations.length - 1];
+    const firstSupportsDirection = firstStation?.directions?.some(dir => dir.id === activeMetroDirectionId);
+    const lastSupportsDirection = lastStation?.directions?.some(dir => dir.id === activeMetroDirectionId);
+
+    if (!firstSupportsDirection && lastSupportsDirection) {
+      return [...baseMetroStations].reverse();
+    }
+
+    return baseMetroStations;
+  }, [baseMetroStations, activeMetroDirectionId]);
+
+  const canRenderMetroLayer = shouldRenderMetroRoute && orderedMetroStations.length > 0 && !topologyLoading;
 
   // Handler for metro station clicks
   const handleMetroStationClick = (station, lineName) => {
@@ -155,10 +170,10 @@ export default function MapView() {
       )}
 
       {/* Metro layer - shows when metro line is selected */}
-      {showRoute && isMetroLine && selectedLine && (
+      {canRenderMetroLayer && (
         <MetroLayer
           selectedLineCode={canonicalMetroLine?.code || selectedLine.id}
-          stationsOverride={metroStations}
+          stationsOverride={orderedMetroStations}
           onStationClick={handleMetroStationClick}
           onStationHover={handleMetroStationHover}
         />
@@ -249,10 +264,11 @@ export default function MapView() {
         </>
       )}
 
-      {activeStationCard && !metroStationLoading && (
+      {activeStationCard && (
         <MetroStationInfoCard
           station={activeStationCard.station}
           lineName={activeStationCard.lineName || canonicalMetroLine?.code || ''}
+          directionId={activeMetroDirectionId}
           onClose={() => setActiveStationCard(null)}
         />
       )}

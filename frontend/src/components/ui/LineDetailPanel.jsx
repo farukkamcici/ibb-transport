@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
@@ -57,7 +57,9 @@ export default function LineDetailPanel() {
     isFavorite,
     selectedDirection,
     setSelectedDirection,
-    setShowRoute
+    setShowRoute,
+    setMetroDirectionSelection,
+    resetMetroDirectionSelection
   } = useAppStore();
   
   const { getAvailableDirections, getPolyline, getDirectionInfo } = useRoutePolyline();
@@ -85,7 +87,10 @@ export default function LineDetailPanel() {
   // Metro-specific state
   const { getLine } = useMetroTopology();
   const metroLine = isMetroLine ? getLine(selectedLine?.id) : null;
-  const metroStations = metroLine?.stations?.sort((a, b) => a.order - b.order) || [];
+  const metroStations = useMemo(() => {
+    if (!metroLine?.stations) return [];
+    return [...metroLine.stations].sort((a, b) => a.order - b.order);
+  }, [metroLine]);
   const [selectedMetroStationId, setSelectedMetroStationId] = useState(metroStations[0]?.id);
   const [selectedMetroDirectionId, setSelectedMetroDirectionId] = useState(metroStations[0]?.directions?.[0]?.id);
   
@@ -95,8 +100,25 @@ export default function LineDetailPanel() {
       const firstStation = metroStations[0];
       setSelectedMetroStationId(firstStation.id);
       setSelectedMetroDirectionId(firstStation.directions?.[0]?.id);
+    } else {
+      setSelectedMetroStationId(null);
+      setSelectedMetroDirectionId(null);
     }
-  }, [isMetroLine, selectedLine]);
+  }, [isMetroLine, selectedLine, metroStations]);
+
+  useEffect(() => {
+    if (isMetroLine && selectedLine?.id && selectedMetroDirectionId) {
+      setMetroDirectionSelection(selectedLine.id, selectedMetroDirectionId);
+    } else if (!isMetroLine || !selectedLine) {
+      resetMetroDirectionSelection();
+    }
+  }, [
+    isMetroLine,
+    selectedLine,
+    selectedMetroDirectionId,
+    setMetroDirectionSelection,
+    resetMetroDirectionSelection
+  ]);
   
   const currentMetroStation = metroStations.find(s => s.id === selectedMetroStationId);
   const metroDirections = currentMetroStation?.directions || [];

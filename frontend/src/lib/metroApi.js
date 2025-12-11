@@ -15,6 +15,9 @@ const metroClient = axios.create({
   timeout: 10000,
 });
 
+const stationsCache = new Map();
+const stationsPromiseCache = new Map();
+
 // Add retry logic
 metroClient.interceptors.response.use(
   (response) => response,
@@ -123,13 +126,29 @@ export const getMetroStations = async (lineCode) => {
     throw new Error('Line code is required');
   }
 
-  try {
-    const response = await metroClient.get(`/metro/lines/${lineCode}/stations`);
-    return response.data;
-  } catch (error) {
-    console.error(`Error fetching metro stations for ${lineCode}:`, error);
-    throw new Error('Failed to load metro stations');
+  if (stationsCache.has(lineCode)) {
+    return stationsCache.get(lineCode);
   }
+
+  if (stationsPromiseCache.has(lineCode)) {
+    return stationsPromiseCache.get(lineCode);
+  }
+
+  const requestPromise = metroClient
+    .get(`/metro/lines/${lineCode}/stations`)
+    .then((response) => {
+      stationsCache.set(lineCode, response.data);
+      stationsPromiseCache.delete(lineCode);
+      return response.data;
+    })
+    .catch((error) => {
+      stationsPromiseCache.delete(lineCode);
+      console.error(`Error fetching metro stations for ${lineCode}:`, error);
+      throw new Error('Failed to load metro stations');
+    });
+
+  stationsPromiseCache.set(lineCode, requestPromise);
+  return requestPromise;
 };
 
 /**

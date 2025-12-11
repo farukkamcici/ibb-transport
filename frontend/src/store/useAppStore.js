@@ -12,6 +12,10 @@ const useAppStore = create(
       favorites: [],
       selectedDirection: 'G',
       showRoute: false,
+      metroDirectionSelection: {
+        lineCode: null,
+        directionId: null,
+      },
       
       setSelectedLine: (line) => set({ 
         selectedLine: line, 
@@ -29,6 +33,18 @@ const useAppStore = create(
       setAlertMessage: (message) => set({ alertMessage: message }),
       setSelectedDirection: (direction) => set({ selectedDirection: direction }),
       setShowRoute: (show) => set({ showRoute: show }),
+      setMetroDirectionSelection: (lineCode, directionId) => set({
+        metroDirectionSelection: {
+          lineCode,
+          directionId,
+        }
+      }),
+      resetMetroDirectionSelection: () => set({
+        metroDirectionSelection: {
+          lineCode: null,
+          directionId: null,
+        }
+      }),
       
       toggleFavorite: (lineId) => set((state) => {
         const exists = state.favorites.includes(lineId);
