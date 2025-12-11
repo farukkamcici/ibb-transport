@@ -160,17 +160,43 @@ class TimeTableRequest(BaseModel):
     DateTime: datetime = Field(default_factory=datetime.now, description="Query timestamp")
 
 
+class TimeInfo(BaseModel):
+    """Time information from IBB Metro API."""
+    Day: int
+    DayName: Optional[str] = None
+    Times: list[str] = Field(default_factory=list, description="List of departure times (HH:MM format)")
+
+
+class MetroScheduleData(BaseModel):
+    """Raw schedule data from IBB Metro GetTimeTable API."""
+    BoardingStationId: int
+    BoardingStationName: str
+    LineId: int
+    LineName: str
+    FirstStationId: int
+    FirstStation: str
+    LastStationId: int
+    LastStation: str
+    LanguageText: Optional[dict] = None
+    TimeInfos: TimeInfo
+
+
+class MetroScheduleResponse(MetroAPIResponse):
+    """Response for GetTimeTable (raw from IBB)."""
+    Data: Optional[list[MetroScheduleData]] = None
+
+
 class TrainArrival(BaseModel):
-    """Individual train arrival information."""
+    """Individual train arrival information (transformed for frontend)."""
     TrainId: Optional[str] = None
-    DestinationStationName: Optional[str] = None
-    RemainingMinutes: Optional[int] = Field(None, description="Minutes until arrival")
-    ArrivalTime: Optional[str] = Field(None, description="Formatted arrival time")
-    IsCrowded: Optional[bool] = Field(None, description="Crowding indicator")
+    DestinationStationName: str = Field(..., description="Final destination")
+    RemainingMinutes: int = Field(..., description="Minutes until arrival")
+    ArrivalTime: str = Field(..., description="Formatted arrival time (HH:MM)")
+    IsCrowded: Optional[bool] = Field(False, description="Crowding indicator")
 
 
 class TimeTableResponse(MetroAPIResponse):
-    """Response for GetTimeTable."""
+    """Response for GetTimeTable (transformed for frontend compatibility)."""
     Data: Optional[list[TrainArrival]] = None
 
 

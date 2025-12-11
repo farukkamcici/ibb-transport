@@ -85,28 +85,25 @@ export default function LineDetailPanel() {
 
   useEffect(() => {
     if (isPanelOpen && selectedLine) {
-      // Skip forecast for metro lines (they use live schedule instead)
-      if (isMetroLine) {
-        setForecastData([]);
-        setError(null);
-        setLineStatus(null);
-        setLoading(false);
-        return;
-      }
-      
       setLoading(true);
       setError(null);
       setForecastData([]);
       
       const targetDate = new Date();
       
-      Promise.all([
-        getForecast(selectedLine.id, targetDate, selectedDirection),
-        getLineStatus(selectedLine.id, selectedDirection)
-      ])
-        .then(([forecastData, statusData]) => {
-          setForecastData(forecastData);
-          setLineStatus(statusData);
+      // Metro lines: only fetch forecast (no line status endpoint)
+      // Bus lines: fetch both forecast and line status
+      const promises = isMetroLine
+        ? [getForecast(selectedLine.id, targetDate, selectedDirection)]
+        : [
+            getForecast(selectedLine.id, targetDate, selectedDirection),
+            getLineStatus(selectedLine.id, selectedDirection)
+          ];
+      
+      Promise.all(promises)
+        .then((results) => {
+          setForecastData(results[0]);
+          setLineStatus(isMetroLine ? null : results[1]);
           setError(null);
         })
         .catch(err => {
@@ -644,23 +641,25 @@ export default function LineDetailPanel() {
                     </div>
                   </div>
 
-                  {/* Card 3: 24h Chart */}
-                  <div className="rounded-xl bg-background border border-white/5 overflow-hidden relative">
-                    <div className="px-3 py-2 border-b border-white/5">
-                      <p className="text-xs font-medium text-gray-400">
-                        {t('forecast24h')}
-                      </p>
+                  {/* Card 3: 24h Chart - Only show if forecast data exists */}
+                  {(forecastData.length > 0 || loading) && (
+                    <div className="rounded-xl bg-background border border-white/5 overflow-hidden relative">
+                      <div className="px-3 py-2 border-b border-white/5">
+                        <p className="text-xs font-medium text-gray-400">
+                          {t('forecast24h')}
+                        </p>
+                      </div>
+                      <div className="px-3 pb-3 pt-2 h-44 relative">
+                        {loading ? (
+                          <div className="h-full flex items-center justify-center">
+                            <Loader className="animate-spin text-primary" size={20} />
+                          </div>
+                        ) : (
+                          <CrowdChart data={forecastData} />
+                        )}
+                      </div>
                     </div>
-                    <div className="px-3 pb-3 pt-2 h-44 relative">
-                      {loading ? (
-                        <div className="h-full flex items-center justify-center">
-                          <Loader className="animate-spin text-primary" size={20} />
-                        </div>
-                      ) : (
-                        <CrowdChart data={forecastData} />
-                      )}
-                    </div>
-                  </div>
+                  )}
 
                 </div>
               </div>

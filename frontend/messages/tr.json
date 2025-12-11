@@ -59,7 +59,14 @@
     "departureFrom": "Kalkış Durağı",
     "direction": "Yönü",
     "firstDeparture": "İlk",
-    "lastDeparture": "Son"
+    "lastDeparture": "Son",
+    "liveArrivals": "Canlı Varışlar",
+    "selectStation": "İstasyon Seçin",
+    "selectDirection": "Yön Seçin",
+    "noUpcomingTrains": "Yaklaşan tren yok",
+    "trainsArriving": "tren yaklaşıyor",
+    "lastUpdated": "Son güncelleme",
+    "noLiveGPS": "Not: Tahminler gerçek zamanlı GPS değil, sefer saatlerine dayalıdır"
   },
   "transportTypes": {
     "bus": "Otobüs",

@@ -59,7 +59,14 @@
     "departureFrom": "Departure Stop",
     "direction": "Direction",
     "firstDeparture": "First",
-    "lastDeparture": "Last"
+    "lastDeparture": "Last",
+    "liveArrivals": "Live Arrivals",
+    "selectStation": "Select Station",
+    "selectDirection": "Select Direction",
+    "noUpcomingTrains": "No upcoming trains",
+    "trainsArriving": "trains arriving soon",
+    "lastUpdated": "Last updated",
+    "noLiveGPS": "Note: Estimates based on schedule, not live GPS"
   },
   "transportTypes": {
     "bus": "Bus",

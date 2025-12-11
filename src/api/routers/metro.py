@@ -27,6 +27,8 @@ from typing import List, Dict, Optional
 from ..schemas import (
     TimeTableRequest,
     TimeTableResponse,
+    MetroScheduleResponse,
+    TrainArrival,
     StationDistanceResponse
 )
 from ..services.metro_service import metro_service
@@ -213,26 +215,29 @@ async def search_stations(q: str):
     response_model=TimeTableResponse,
     summary="Get Live Train Arrivals",
     description="""
-    Fetches real-time train arrivals for a specific station and direction.
+    Fetches planned train departures and converts them to estimated arrivals.
     
     **Required from Frontend:**
     - BoardingStationId: Get from metro_topology.json
     - DirectionId: Get from metro_topology.json (station.directions)
     
-    **Caching:** 60 seconds TTL (real-time data)
+    **Caching:** 60 seconds TTL (schedule data)
     
     **Upstream API:** POST /GetTimeTable
+    
+    **Note:** IBB API returns planned departure times, not live GPS. 
+    Backend calculates "RemainingMinutes" based on current time.
     """
 )
 async def get_train_schedule(request: TimeTableRequest = Body(...)):
     """
-    Get live train arrival times for a station.
+    Get train departure schedule and convert to arrival estimates.
     
     Args:
         request: TimeTableRequest with StationId, DirectionId, DateTime
         
     Returns:
-        List of upcoming trains with arrival times and crowding info
+        List of upcoming trains with estimated arrival times
         
     Raises:
         HTTPException 404: Station/direction not found
@@ -249,11 +254,10 @@ async def get_train_schedule(request: TimeTableRequest = Body(...)):
     logger.info(f"Fetching schedule for station {request.BoardingStationId}, direction {request.DirectionId}")
     
     try:
-        # Prepare request payload
+        # Prepare request payload (remove DateTime - API doesn't need it)
         payload = {
             "BoardingStationId": request.BoardingStationId,
-            "DirectionId": request.DirectionId,
-            "DateTime": request.DateTime.isoformat()
+            "DirectionId": request.DirectionId
         }
         
         # Call Metro API
@@ -263,19 +267,22 @@ async def get_train_schedule(request: TimeTableRequest = Body(...)):
             timeout=10
         )
         response.raise_for_status()
-        data = response.json()
+        raw_data = response.json()
         
         # Validate response
-        if not data.get('Success'):
-            error_msg = data.get('Error', {}).get('Message', 'Unknown error')
+        if not raw_data.get('Success'):
+            error_msg = raw_data.get('Error', {}).get('Message', 'Unknown error')
             raise HTTPException(
                 status_code=404,
                 detail=f"Metro API error: {error_msg}"
             )
         
-        # Cache and return
-        _schedule_cache[cache_key] = data
-        return data
+        # Transform response to frontend-compatible format
+        transformed_data = _transform_schedule_response(raw_data)
+        
+        # Cache and return transformed data
+        _schedule_cache[cache_key] = transformed_data
+        return transformed_data
         
     except requests.exceptions.Timeout:
         logger.error("Metro API timeout")
@@ -289,6 +296,85 @@ async def get_train_schedule(request: TimeTableRequest = Body(...)):
             status_code=500,
             detail="Failed to fetch train schedule"
         )
+
+
+def _transform_schedule_response(raw_data: dict) -> dict:
+    """
+    Transform IBB Metro schedule response to frontend-compatible format.
+    
+    Converts planned departure times (HH:MM) to estimated arrivals with RemainingMinutes.
+    
+    Args:
+        raw_data: Raw response from IBB GetTimeTable API
+        
+    Returns:
+        Transformed response matching TimeTableResponse schema
+    """
+    if not raw_data.get('Data') or len(raw_data['Data']) == 0:
+        return {
+            "Success": True,
+            "Error": None,
+            "Data": []
+        }
+    
+    schedule_data = raw_data['Data'][0]
+    times = schedule_data.get('TimeInfos', {}).get('Times', [])
+    destination = schedule_data.get('LastStation', 'Unknown')
+    
+    # Get current time in Istanbul timezone
+    from datetime import datetime, timezone, timedelta
+    istanbul_tz = timezone(timedelta(hours=3))
+    now = datetime.now(istanbul_tz)
+    current_time = now.time()
+    
+    # Convert times to TrainArrival objects
+    arrivals = []
+    for idx, time_str in enumerate(times):
+        try:
+            # Parse time (HH:MM format)
+            parts = time_str.split(':')
+            if len(parts) != 2:
+                continue
+                
+            hour = int(parts[0])
+            minute = int(parts[1])
+            
+            # Create datetime for comparison
+            train_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            
+            # Skip past trains
+            if train_time <= now:
+                continue
+            
+            # Calculate remaining minutes
+            time_diff = train_time - now
+            remaining_minutes = int(time_diff.total_seconds() / 60)
+            
+            # Only include trains within next 60 minutes
+            if remaining_minutes > 60:
+                continue
+            
+            arrivals.append({
+                "TrainId": f"TRAIN_{idx}",
+                "DestinationStationName": destination,
+                "RemainingMinutes": remaining_minutes,
+                "ArrivalTime": time_str,
+                "IsCrowded": False  # Not available from API
+            })
+            
+            # Limit to next 10 trains
+            if len(arrivals) >= 10:
+                break
+                
+        except (ValueError, IndexError) as e:
+            logger.warning(f"Failed to parse time '{time_str}': {e}")
+            continue
+    
+    return {
+        "Success": True,
+        "Error": None,
+        "Data": arrivals
+    }
 
 
 # ============================================================================

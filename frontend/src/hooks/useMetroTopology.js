@@ -85,9 +85,22 @@ export default function useMetroTopology() {
 
   /**
    * Get specific line by code.
+   * Handles M1 → M1A fallback for database compatibility.
    */
   const getLine = useCallback((lineCode) => {
-    return topology?.lines?.[lineCode] || null;
+    if (!topology?.lines) return null;
+    
+    // Direct match
+    if (topology.lines[lineCode]) {
+      return topology.lines[lineCode];
+    }
+    
+    // Fallback: M1 → M1A (database has M1, topology has M1A/M1B)
+    if (lineCode === 'M1') {
+      return topology.lines['M1A'] || null;
+    }
+    
+    return null;
   }, [topology]);
 
   /**
