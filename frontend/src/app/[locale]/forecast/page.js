@@ -81,6 +81,8 @@ function FavoriteLineCard({ lineId }) {
   const transportType = getTransportType(metadata.transport_type_id);
   const crowdLevel = currentStatus?.crowd_level || 'Unknown';
   const config = crowdLevelConfig[crowdLevel] || { color: "text-gray-400", bgColor: "bg-gray-500/20", badge: "bg-gray-500" };
+  const crowdKey = `crowdLevels.${crowdLevel}`;
+  const crowdLabel = typeof t.has === 'function' && t.has(crowdKey) ? t(crowdKey) : crowdLevel;
 
   return (
     <button
@@ -114,7 +116,7 @@ function FavoriteLineCard({ lineId }) {
         </div>
         {currentStatus && (
           <div className={cn("px-2 py-1 rounded-lg text-xs font-semibold", config.badge, "text-white")}>
-            {t(`crowdLevels.${crowdLevel}`)}
+            {crowdLabel}
           </div>
         )}
       </div>

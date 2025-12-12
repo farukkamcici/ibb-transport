@@ -20,13 +20,13 @@ export default function SearchBar() {
 
   useEffect(() => {
     if (debouncedQuery.length > 1) {
-      setLoading(true);
+      queueMicrotask(() => setLoading(true));
       searchLines(debouncedQuery).then(data => {
         setResults(data);
         setLoading(false);
       });
     } else {
-      setResults([]);
+      queueMicrotask(() => setResults([]));
     }
   }, [debouncedQuery]);
 

@@ -105,12 +105,14 @@ function MetroStationMarker({ station, lineColor, lineName, isStart, isEnd, onSt
  * MetroLineLayer - Renders a single metro line
  */
 function MetroLineLayer({ lineCode, lineData, stationsOverride = [], onStationClick, onStationHover }) {
+  const lineStations = lineData?.stations;
+
   const sortedStations = useMemo(() => {
     if (stationsOverride.length > 0) {
       return [...stationsOverride].sort((a, b) => a.order - b.order);
     }
-    return [...(lineData?.stations || [])].sort((a, b) => a.order - b.order);
-  }, [lineData?.stations, stationsOverride]);
+    return [...(lineStations || [])].sort((a, b) => a.order - b.order);
+  }, [lineStations, stationsOverride]);
 
   const coordinates = useMemo(() => {
     return sortedStations

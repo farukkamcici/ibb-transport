@@ -40,7 +40,8 @@
       "Medium": "Orta Yoğunluk",
       "High": "Yüksek Yoğunluk",
       "Very High": "Çok Yüksek Yoğunluk",
-      "Unknown": "Bilinmiyor"
+      "Unknown": "Bilinmiyor",
+      "Out of Service": "Sefer Yok"
     },
     "resetPosition": "Konumu sıfırla",
     "chart": {
@@ -122,7 +123,8 @@
       "Medium": "Orta",
       "High": "Yüksek",
       "Very High": "Çok Yüksek",
-      "Unknown": "Bilinmiyor"
+      "Unknown": "Bilinmiyor",
+      "Out of Service": "Sefer Yok"
     },
     "emptyState": {
       "title": "Henüz favori hat eklemediniz",

@@ -11,49 +11,48 @@ const getCrowdColor = (occupancy_pct) => {
   return '#10b981';
 };
 
-export default function CrowdChart({ data }) {
+function CrowdChartTooltip({ active, payload }) {
   const t = useTranslations('lineDetail');
-  const tErrors = useTranslations('errors');
   const locale = useLocale();
   const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
-  const CustomTooltip = ({ active, payload }) => {
-    if (!active || !payload || !payload.length) return null;
+  if (!active || !payload || !payload.length) return null;
 
-    const point = payload[0].payload;
+  const point = payload[0].payload;
 
-    // Out-of-service hours
-    if (!point.in_service || point.occupancy_pct === null) {
-      return (
-        <div className="rounded-lg border border-slate-600/50 bg-slate-800/95 p-3 shadow-xl backdrop-blur-sm">
-          <p className="text-xs font-semibold text-gray-400">
-            {t('chart.hourLabel', { hour: point.hour })}
-          </p>
-          <p className="text-sm font-bold text-slate-300 mt-1">{t('chart.outOfService')}</p>
-          <p className="text-xs text-gray-500 mt-1">{t('chart.noTripsScheduled')}</p>
-        </div>
-      );
-    }
-
-    const crowdLabel = point.crowd_level ? t(`crowdLevels.${point.crowd_level}`) : t('crowdLevels.Unknown');
-
+  // Out-of-service hours
+  if (!point.in_service || point.occupancy_pct === null) {
     return (
-      <div className="rounded-lg border border-white/10 bg-surface/95 p-3 shadow-xl backdrop-blur-sm">
+      <div className="rounded-lg border border-slate-600/50 bg-slate-800/95 p-3 shadow-xl backdrop-blur-sm">
         <p className="text-xs font-semibold text-gray-400">
           {t('chart.hourLabel', { hour: point.hour })}
         </p>
-        <p className="text-sm font-bold text-text mt-1">
-          {t('chart.occupancyLabel', { pct: point.occupancy_pct })}
-        </p>
-        <p className="text-xs text-secondary mt-1">
-          {t('chart.levelLabel', { level: crowdLabel })}
-        </p>
-        <p className="text-xs text-gray-400 mt-1">
-          {t('chart.passengersApprox', { count: numberFormatter.format(Math.round(point.predicted_value)) })}
-        </p>
+        <p className="text-sm font-bold text-slate-300 mt-1">{t('chart.outOfService')}</p>
+        <p className="text-xs text-gray-500 mt-1">{t('chart.noTripsScheduled')}</p>
       </div>
     );
-  };
+  }
+
+  const crowdLabel = point.crowd_level ? t(`crowdLevels.${point.crowd_level}`) : t('crowdLevels.Unknown');
+
+  return (
+    <div className="rounded-lg border border-white/10 bg-surface/95 p-3 shadow-xl backdrop-blur-sm">
+      <p className="text-xs font-semibold text-gray-400">
+        {t('chart.hourLabel', { hour: point.hour })}
+      </p>
+      <p className="text-sm font-bold text-text mt-1">
+        {t('chart.occupancyLabel', { pct: point.occupancy_pct })}
+      </p>
+      <p className="text-xs text-secondary mt-1">{t('chart.levelLabel', { level: crowdLabel })}</p>
+      <p className="text-xs text-gray-400 mt-1">
+        {t('chart.passengersApprox', { count: numberFormatter.format(Math.round(point.predicted_value)) })}
+      </p>
+    </div>
+  );
+}
+
+export default function CrowdChart({ data }) {
+  const tErrors = useTranslations('errors');
   
   const formattedData = useMemo(() => {
     if (!data || !Array.isArray(data) || data.length === 0) {
@@ -161,7 +160,7 @@ export default function CrowdChart({ data }) {
           />
 
           <Tooltip 
-            content={<CustomTooltip />}
+            content={<CrowdChartTooltip />}
             cursor={{ stroke: '#3b82f6', strokeWidth: 1, strokeDasharray: '3 3' }}
             isAnimationActive={false}
             allowEscapeViewBox={{ x: false, y: true }}

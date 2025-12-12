@@ -76,7 +76,7 @@ export default function LineDetailPanel() {
   
   useEffect(() => {
     if (isPanelOpen && isFavoritesPage) {
-      setIsMinimized(false);
+      queueMicrotask(() => setIsMinimized(false));
     }
   }, [isPanelOpen, isFavoritesPage]);
   const [hasRouteData, setHasRouteData] = useState(false);
@@ -159,9 +159,11 @@ export default function LineDetailPanel() {
 
   useEffect(() => {
     if (isPanelOpen && selectedLine) {
-      setLoading(true);
-      setError(null);
-      setForecastData([]);
+      queueMicrotask(() => {
+        setLoading(true);
+        setError(null);
+        setForecastData([]);
+      });
       
       const targetDate = new Date();
       
@@ -199,9 +201,11 @@ export default function LineDetailPanel() {
           setLoading(false);
         });
     } else {
-      setForecastData([]);
-      setError(null);
-      setLineStatus(null);
+      queueMicrotask(() => {
+        setForecastData([]);
+        setError(null);
+        setLineStatus(null);
+      });
     }
   }, [isPanelOpen, selectedLine, selectedDirection, isMetroLine]);
 
@@ -238,8 +242,11 @@ export default function LineDetailPanel() {
       
       checkRouteData();
     } else {
-      setHasRouteData(false);
-      setShowRoute(false);
+      queueMicrotask(() => {
+        if (!isMounted) return;
+        setHasRouteData(false);
+        setShowRoute(false);
+      });
     }
 
     return () => {
@@ -259,10 +266,12 @@ export default function LineDetailPanel() {
       const panelHeight = panelSize.height;
       
       if (panelHeight > viewportHeight - 160) {
-        setPanelSize(prev => ({
-          width: prev.width,
-          height: viewportHeight - 160
-        }));
+        queueMicrotask(() => {
+          setPanelSize((prev) => ({
+            width: prev.width,
+            height: viewportHeight - 160
+          }));
+        });
       }
       
       initialPositionSet.current = true;

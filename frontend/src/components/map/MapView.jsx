@@ -87,12 +87,13 @@ export default function MapView() {
       };
       fetchPolyline();
     } else {
-      setRouteCoordinates([]);
+      queueMicrotask(() => {
+        if (isActive) setRouteCoordinates([]);
+      });
     }
 
     return () => {
       isActive = false;
-      setRouteCoordinates([]);
     };
   }, [showRoute, selectedLine, selectedDirection, getPolyline, isMetroLine]);
 
@@ -107,13 +108,13 @@ export default function MapView() {
 
   useEffect(() => {
     if (!shouldRenderMetroRoute) {
-      setIsStationCardOpen(false);
+      queueMicrotask(() => setIsStationCardOpen(false));
     }
   }, [shouldRenderMetroRoute]);
 
   useEffect(() => {
     // Close card only when the selected line changes (not when M1 switches between M1A/M1B).
-    setIsStationCardOpen(false);
+    queueMicrotask(() => setIsStationCardOpen(false));
   }, [selectedLine?.id]);
 
   const routeStops = useMemo(() => {

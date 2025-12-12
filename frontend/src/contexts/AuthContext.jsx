@@ -17,10 +17,10 @@ export function AuthProvider({ children }) {
     const username = localStorage.getItem('admin_username');
     
     if (token && username) {
-      setUser({ username, token });
+      queueMicrotask(() => setUser({ username, token }));
     }
     
-    setLoading(false);
+    queueMicrotask(() => setLoading(false));
   }, []);
 
   const getAuthHeaders = () => {

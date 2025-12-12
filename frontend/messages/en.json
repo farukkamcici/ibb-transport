@@ -40,7 +40,8 @@
       "Medium": "Medium Density",
       "High": "High Density",
       "Very High": "Very High Density",
-      "Unknown": "Unknown"
+      "Unknown": "Unknown",
+      "Out of Service": "Out of Service"
     },
     "resetPosition": "Reset position",
     "chart": {
@@ -122,7 +123,8 @@
       "Medium": "Medium",
       "High": "High",
       "Very High": "Very High",
-      "Unknown": "Unknown"
+      "Unknown": "Unknown",
+      "Out of Service": "Out of Service"
     },
     "emptyState": {
       "title": "You haven't added any favorite lines yet",
