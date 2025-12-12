@@ -72,7 +72,7 @@ export default function SearchBar() {
          <Search className="h-4 w-4 text-secondary shrink-0" />
          <input 
            type="text"
-           inputMode="tel"
+           inputMode="text"
            value={query}
            onChange={(e) => setQuery(e.target.value)}
            placeholder={t('placeholder')} 

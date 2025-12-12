@@ -32,10 +32,19 @@ export default function SchedulerPanel({ schedulerStatus, onPauseResume, getAuth
         case 'data_quality_check':
           endpoint = `${API_URL}/admin/scheduler/trigger/quality-check`;
           break;
+        case 'metro_schedule_prefetch':
+          await axios.post(`${API_URL}/admin/metro/cache/refresh`, { mode: 'all', force: true }, { headers });
+          setMessage(`✅ Metro timetable refresh scheduled!`);
+          setTimeout(() => {
+            onRefresh?.();
+            setMessage("");
+          }, 2000);
+          setTriggeringJob(null);
+          return;
         default:
           throw new Error('Unknown job type');
       }
-      
+
       await axios.post(endpoint, {}, { headers });
       setMessage(`✅ Job '${jobId}' triggered successfully!`);
       

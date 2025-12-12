@@ -85,8 +85,15 @@ function MetroStationMarker({ station, lineColor, lineName, isStart, isEnd, onSt
         mouseover: handleHover
       }}
     >
-      <Tooltip direction="top" offset={[0, -5]} opacity={0.9} permanent={false} sticky>
-        <div className="text-xs font-semibold text-gray-100">
+      <Tooltip
+        direction="top"
+        offset={[0, -5]}
+        opacity={0.95}
+        permanent={false}
+        sticky
+        className="metro-station-tooltip"
+      >
+        <div className="text-xs font-semibold">
           {station.description || station.name}
         </div>
       </Tooltip>

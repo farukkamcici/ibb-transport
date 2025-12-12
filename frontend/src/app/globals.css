@@ -30,3 +30,15 @@ input[type=range]::-webkit-slider-thumb {
     transform: translateX(-50%);
   }
 }
+
+/* Leaflet tooltip readability overrides (metro station hover). */
+.leaflet-tooltip.metro-station-tooltip {
+  background: rgba(15, 23, 42, 0.95);
+  color: rgb(248, 250, 252);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.leaflet-tooltip.metro-station-tooltip::before {
+  border-top-color: rgba(15, 23, 42, 0.95);
+}

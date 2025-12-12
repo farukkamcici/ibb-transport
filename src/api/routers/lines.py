@@ -5,6 +5,7 @@ from typing import List, Dict
 from ..db import get_db
 from ..models import TransportLine
 from ..services.route_service import route_service
+from ..services.metro_service import metro_service
 from pydantic import BaseModel
 import unicodedata
 
@@ -81,24 +82,46 @@ def search_lines(query: str, db: Session = Depends(get_db)):
         TransportLine.line_name
     ).limit(15).all()
     
-    return [
-        SearchResult(
-            line_name=line.TransportLine.line_name,
-            transport_type_id=line.TransportLine.transport_type_id,
-            road_type=line.TransportLine.road_type,
-            line=line.TransportLine.line,
-            relevance_score=line.relevance_score
+    results: List[SearchResult] = []
+
+    for row in lines:
+        base = SearchResult(
+            line_name=row.TransportLine.line_name,
+            transport_type_id=row.TransportLine.transport_type_id,
+            road_type=row.TransportLine.road_type,
+            line=row.TransportLine.line,
+            relevance_score=row.relevance_score
         )
-        for line in lines
-    ]
+
+        # Best-practice UX: expose M1A/M1B as separate searchable lines.
+        # Forecasts remain keyed by "M1" in the DB, but topology/schedule differ.
+        if base.line_name == 'M1':
+            for split_code in ('M1A', 'M1B'):
+                topo = metro_service.get_line(split_code) or {}
+                desc = topo.get('description') or base.line
+                results.append(
+                    SearchResult(
+                        line_name=split_code,
+                        transport_type_id=base.transport_type_id,
+                        road_type=base.road_type,
+                        line=desc,
+                        relevance_score=base.relevance_score
+                    )
+                )
+            continue
+
+        results.append(base)
+
+    return results
 
 @router.get("/lines/{line_name}", response_model=TransportLineResponse)
 def get_line_metadata(line_name: str, db: Session = Depends(get_db)):
     """
     Retrieves metadata for a specific transport line.
     """
+    base_line_name = 'M1' if line_name in ('M1A', 'M1B') else line_name
     line = db.query(TransportLine).filter(
-        TransportLine.line_name == line_name
+        TransportLine.line_name == base_line_name
     ).first()
     
     if not line:
@@ -107,6 +130,16 @@ def get_line_metadata(line_name: str, db: Session = Depends(get_db)):
             detail=f"Transport line '{line_name}' not found."
         )
     
+    # For split M1 lines, override the outward-facing code + description.
+    if line_name in ('M1A', 'M1B'):
+        topo = metro_service.get_line(line_name) or {}
+        return TransportLineResponse(
+            line_name=line_name,
+            transport_type_id=line.transport_type_id,
+            road_type=line.road_type,
+            line=topo.get('description') or line.line
+        )
+
     return line
 
 

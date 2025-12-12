@@ -56,10 +56,11 @@ export default function LineDetailPanel() {
     toggleFavorite, 
     isFavorite,
     selectedDirection,
+    metroSelection,
     setSelectedDirection,
     setShowRoute,
-    setMetroDirectionSelection,
-    resetMetroDirectionSelection
+    setMetroSelection,
+    resetMetroSelection
   } = useAppStore();
   
   const { getAvailableDirections, getPolyline, getDirectionInfo } = useRoutePolyline();
@@ -86,42 +87,70 @@ export default function LineDetailPanel() {
   
   // Metro-specific state
   const { getLine } = useMetroTopology();
+
   const metroLine = isMetroLine ? getLine(selectedLine?.id) : null;
   const metroStations = useMemo(() => {
     if (!metroLine?.stations) return [];
     return [...metroLine.stations].sort((a, b) => a.order - b.order);
   }, [metroLine]);
-  const [selectedMetroStationId, setSelectedMetroStationId] = useState(metroStations[0]?.id);
-  const [selectedMetroDirectionId, setSelectedMetroDirectionId] = useState(metroStations[0]?.directions?.[0]?.id);
-  
-  // Update metro station/direction when line changes
-  useEffect(() => {
-    if (isMetroLine && metroStations.length > 0) {
-      const firstStation = metroStations[0];
-      setSelectedMetroStationId(firstStation.id);
-      setSelectedMetroDirectionId(firstStation.directions?.[0]?.id);
-    } else {
-      setSelectedMetroStationId(null);
-      setSelectedMetroDirectionId(null);
-    }
-  }, [isMetroLine, selectedLine, metroStations]);
 
+  const selectedMetroStationId = useMemo(() => {
+    const desired = metroSelection?.stationId;
+    if (desired && metroStations.some((s) => s.id === desired)) {
+      return desired;
+    }
+    return metroStations[0]?.id ?? null;
+  }, [metroSelection?.stationId, metroStations]);
+
+  const currentMetroStation = useMemo(() => {
+    return metroStations.find((s) => s.id === selectedMetroStationId) || null;
+  }, [metroStations, selectedMetroStationId]);
+
+  const metroDirections = currentMetroStation?.directions || [];
+
+  const selectedMetroDirectionId = useMemo(() => {
+    if (!currentMetroStation) {
+      return null;
+    }
+
+    const desired = metroSelection?.directionId;
+    if (desired && metroDirections.some((d) => d.id === desired)) {
+      return desired;
+    }
+
+    return metroDirections?.[0]?.id ?? null;
+  }, [currentMetroStation, metroSelection?.directionId, metroDirections]);
+
+  // Keep the shared metro selection in sync (single source of truth).
   useEffect(() => {
-    if (isMetroLine && selectedLine?.id && selectedMetroDirectionId) {
-      setMetroDirectionSelection(selectedLine.id, selectedMetroDirectionId);
-    } else if (!isMetroLine || !selectedLine) {
-      resetMetroDirectionSelection();
+    if (!isMetroLine || !selectedLine) {
+      resetMetroSelection();
+      return;
+    }
+
+    if (!selectedLine.id || !selectedMetroStationId || !selectedMetroDirectionId) {
+      return;
+    }
+
+    const needsUpdate =
+      metroSelection?.lineCode !== selectedLine.id ||
+      metroSelection?.stationId !== selectedMetroStationId ||
+      metroSelection?.directionId !== selectedMetroDirectionId;
+
+    if (needsUpdate) {
+      setMetroSelection(selectedLine.id, selectedMetroStationId, selectedMetroDirectionId);
     }
   }, [
     isMetroLine,
     selectedLine,
+    selectedMetroStationId,
     selectedMetroDirectionId,
-    setMetroDirectionSelection,
-    resetMetroDirectionSelection
+    metroSelection?.lineCode,
+    metroSelection?.stationId,
+    metroSelection?.directionId,
+    setMetroSelection,
+    resetMetroSelection
   ]);
-  
-  const currentMetroStation = metroStations.find(s => s.id === selectedMetroStationId);
-  const metroDirections = currentMetroStation?.directions || [];
   const panelRef = useRef(null);
   const initialPositionSet = useRef(false);
   const INITIAL_PANEL_SIZE = { width: 440, height: 520 };
@@ -241,6 +270,11 @@ export default function LineDetailPanel() {
   const status = currentHourData ? crowdLevelConfig[crowdLevel] : null;
   const metadata = selectedLine.metadata;
   const transportType = metadata ? getTransportType(metadata.transport_type_id) : null;
+  const m1aLine = isMetroLine ? getLine('M1A') : null;
+  const m1bLine = isMetroLine ? getLine('M1B') : null;
+  const displayLineLabel = (isMetroLine && selectedLine.id === 'M1')
+    ? [m1aLine?.description, m1bLine?.description].filter(Boolean).join(' / ')
+    : metadata?.line;
   const isFav = isFavorite(selectedLine.id);
   const availableDirections = getAvailableDirections(selectedLine.id);
   const directionInfo = getDirectionInfo(selectedLine.id);
@@ -439,9 +473,9 @@ export default function LineDetailPanel() {
                   <span className="rounded-lg bg-primary px-2.5 py-1 text-sm font-bold text-white shrink-0">
                     {selectedLine.id}
                   </span>
-                  {metadata?.line && (
+                  {displayLineLabel && (
                     <span className="text-xs text-gray-300 truncate min-w-0">
-                      {metadata.line}
+                      {displayLineLabel}
                     </span>
                   )}
                 </div>
@@ -494,11 +528,12 @@ export default function LineDetailPanel() {
                         value={selectedMetroStationId || ''}
                         onChange={(e) => {
                           const newStationId = parseInt(e.target.value);
-                          setSelectedMetroStationId(newStationId);
                           const newStation = metroStations.find(s => s.id === newStationId);
-                          if (newStation?.directions?.[0]) {
-                            setSelectedMetroDirectionId(newStation.directions[0].id);
-                          }
+                          if (!newStation) return;
+
+                          const nextDirectionId = newStation.directions?.[0]?.id ?? null;
+
+                          setMetroSelection(selectedLine.id, newStationId, nextDirectionId);
                         }}
                         className="w-full appearance-none bg-slate-700/50 border border-white/10 rounded-lg px-3 py-2 pr-8 text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 cursor-pointer"
                       >
@@ -515,7 +550,10 @@ export default function LineDetailPanel() {
                     <div className="relative">
                       <select
                         value={selectedMetroDirectionId || ''}
-                        onChange={(e) => setSelectedMetroDirectionId(parseInt(e.target.value))}
+                        onChange={(e) => {
+                          const newDirectionId = parseInt(e.target.value);
+                          setMetroSelection(selectedLine.id, selectedMetroStationId, newDirectionId);
+                        }}
                         className="w-full appearance-none bg-slate-700/50 border border-white/10 rounded-lg px-3 py-2 pr-8 text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/50 cursor-pointer"
                         disabled={metroDirections.length === 0}
                       >

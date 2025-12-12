@@ -89,11 +89,60 @@ export default function useMetroSchedule(stationId, directionId, options = {}) {
       return [];
     }
 
-    return schedule.Data
-      .filter(train => train.RemainingMinutes != null)
-      .sort((a, b) => a.RemainingMinutes - b.RemainingMinutes)
+    // Format A: Backend returns "live arrivals" already.
+    // Expected items: {RemainingMinutes, ArrivalTime, DestinationStationName, TrainId}
+    const looksLikeLiveArrivals = Array.isArray(schedule.Data)
+      && schedule.Data.some((item) => typeof item?.RemainingMinutes === 'number');
+
+    if (looksLikeLiveArrivals) {
+      return schedule.Data
+        .filter(train => train.RemainingMinutes != null)
+        .sort((a, b) => a.RemainingMinutes - b.RemainingMinutes)
+        .slice(0, count);
+    }
+
+    // Format B: Cached/raw GetTimeTable payload (Data[0].TimeInfos[].Times[] = ["HH:MM"]).
+    // Convert next departure times into pseudo "arrivals" with RemainingMinutes.
+    const timeInfos = schedule?.Data?.[0]?.TimeInfos;
+    const times = timeInfos?.Times;
+    if (!Array.isArray(times) || times.length === 0) {
+      return [];
+    }
+
+    const destination = schedule?.Data?.[0]?.LastStation || schedule?.Data?.[0]?.Direction || null;
+
+    const now = new Date();
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+    const next = times
+      .map((timeStr) => {
+        if (typeof timeStr !== 'string') {
+          return null;
+        }
+        const [hRaw, mRaw] = timeStr.split(':');
+        const hours = Number(hRaw);
+        const minutes = Number(mRaw);
+        if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+          return null;
+        }
+        const totalMinutes = hours * 60 + minutes;
+        const diff = totalMinutes - nowMinutes;
+        if (diff < 0) {
+          return null;
+        }
+
+        return {
+          TrainId: `TT-${stationId}-${directionId}-${timeStr}`,
+          DestinationStationName: destination,
+          RemainingMinutes: diff,
+          ArrivalTime: timeStr,
+        };
+      })
+      .filter(Boolean)
       .slice(0, count);
-  }, [schedule]);
+
+    return next;
+  }, [schedule, stationId, directionId]);
 
   /**
    * Check if there are trains arriving soon (within N minutes).
