@@ -377,6 +377,13 @@ The platform implements a comprehensive automated forecast generation system usi
 - `MetroScheduleWidget` (compact) and `MetroScheduleModal` (full-day view) share a stale-while-revalidate cache (`frontend/src/lib/metroScheduleCache.js`) keyed by station/direction/day so users see instant timetables even when the upstream API stalls.
 - LineDetailPanel detects metro lines (including the `M1 → M1A` fallback) and wires forecasts, schedule pickers, and live countdowns together for a seamless metro UX.
 
+**M1 Branch Handling (M1A / M1B)**:
+- `/lines/search` exposes `M1A` and `M1B` as separate selectable lines (branch-correct station lists + direction IDs) while `/forecast/{line}` aliases both to the same underlying `M1` prediction rows.
+- The legacy `M1 → M1A` fallback remains for backwards compatibility but is superseded by the explicit branch split.
+
+**Rail Service Windows (Out-of-Service Hours)**:
+- For metro/rail lines, forecast service windows are derived from `metro_topology.json` line metadata (`first_time`/`last_time`) and handle wrap-midnight cases so the 24h chart can render gaps during inactive hours.
+
 ---
 
 ## UI Platform Architecture & User Experience Flow

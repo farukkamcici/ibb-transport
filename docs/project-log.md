@@ -1,6 +1,107 @@
 # Project Logbook
 
-_Last updated: 2025-12-11_
+_Last updated: 2025-12-12_
+
+## Entry · 2025-12-12 18:28 (+03)
+
+### Commit
+- **Hash:** `bec727ae62cb74e1b4254c9bcf870891cad2dafe`
+- **Message:** `rev`
+
+### Summary
+- Iterated on the metro UX polish by tightening the map/selection flow and cleaning up follow-up issues after the M1A/M1B split.
+
+### Details
+- Stabilized metro map interactions so the LineDetailPanel selectors, map station clicks, and MetroStationInfoCard stay in sync.
+- Refined the MetroStationInfoCard layout and direction-switch affordance for both mobile and desktop.
+
+### Notes
+- This commit is primarily a UX/stability follow-up on the metro map/schedule rollout.
+
+## Entry · 2025-12-12 18:16 (+03)
+
+### Commit
+- **Hash:** `c7a17f16d34b0b93dbdf73fd6fd8cdd761bc1cf4`
+- **Message:** `fix: handle ıut of service hours for rail systems and fix bugs`
+
+### Summary
+- Extended the “out of service” forecast pipeline to metro/rail so 24h charts stay visible while inactive hours correctly show gaps instead of misleading predictions.
+
+### Details
+- Updated `/forecast/{line}` to derive service windows for metro/rail lines from topology metadata (first/last time), including wrap-midnight handling.
+- Fixed edge cases where rail lines were incorrectly treated as 24/7 active due to missing schedule metadata.
+
+### Notes
+- This makes the chart UX consistent across buses and rail: always render the 24h curve, but blank out inactive hours.
+
+## Entry · 2025-12-12 18:00 (+03)
+
+### Commit
+- **Hash:** `2d929503d4aa389f9db02f580d33579e86eab946`
+- **Message:** `feat: split M1 into M1A/M1B search results, fix mapview bugs`
+
+### Summary
+- Split M1 into M1A and M1B in the search experience to avoid branch-specific station/direction mismatches and make metro selection behave like other lines.
+
+### Details
+- Updated line search and metadata handling so M1A/M1B are surfaced as separate selectable lines while forecasts can still share the underlying M1 prediction data.
+- Fixed map view metro issues around station selection consistency and schedule lookups.
+
+### Notes
+- This reduces special-casing in the UI and prevents users from selecting stations that don’t belong to the chosen branch.
+
+## Entry · 2025-12-11 23:43 (+03)
+
+### Commit
+- **Hash:** `487429ae8bf3716fd86b5333cae6c6bb8064eaf7`
+- **Message:** `add cache scheduler for metro schedule in api`
+
+### Summary
+- Added a backend APScheduler-based prefetch pipeline so metro timetables are served from a persistent Postgres cache first, reducing latency and shielding the UI from upstream outages.
+
+### Details
+- Implemented a daily prefetch cron plus retry/cleanup jobs that populate `metro_schedules` for all station/direction pairs.
+- Updated `/metro/schedule` to read from the persistent cache and gracefully fall back to older snapshots during upstream failures.
+
+### Notes
+- This is the server-side counterpart to the client stale-while-revalidate cache.
+
+## Entry · 2025-12-11 23:14 (+03)
+
+### Commit
+- **Hash:** `acf2e53645fc86c1a12c72245349f0c6c1d2e596`
+- **Message:** `add map view for metro lines`
+
+### Summary
+- Added metro line rendering to the Leaflet map, including station markers and tooltips.
+
+### Details
+- Introduced the MetroLayer overlay for polylines/stations using the generated metro topology JSON.
+- Wired map selection hooks to support station inspection flows.
+
+## Entry · 2025-12-11 22:34 (+03)
+
+### Commit
+- **Hash:** `1990f92308a1df9d9758c7f4834de58a530535c5`
+- **Message:** `add map view for metro lines`
+
+### Summary
+- Delivered the initial metro map overlay foundation used by subsequent schedule and UX improvements.
+
+### Details
+- Added base metro line rendering primitives and integrated them into MapView.
+
+## Entry · 2025-12-11 22:25 (+03)
+
+### Commit
+- **Hash:** `3cd680a049f72a3f1350908c90202a15bab52fc8`
+- **Message:** `docs rev`
+
+### Summary
+- Refreshed documentation ahead of the metro rollout and cache/scheduler work.
+
+### Details
+- Updated internal project log and summary to reflect the latest metro integration milestones.
 
 ## Entry · 2025-12-11 22:11 (+03)
 
