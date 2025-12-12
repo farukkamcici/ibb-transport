@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from datetime import date, datetime, timedelta, time as datetime_time
-from typing import List, Optional
+from typing import List, Optional, Tuple
 import logging
 from ..db import get_db
 from ..models import DailyForecast, TransportLine
 from ..services.schedule_service import schedule_service
+from ..services.metro_service import metro_service
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -33,7 +34,7 @@ def _parse_time(time_str: str) -> Optional[datetime_time]:
     return None
 
 
-def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optional[tuple]:
+def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optional[Tuple[int, int, bool]]:
     """
     Get service hours (first and last departure) for a line.
     
@@ -42,9 +43,19 @@ def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optio
         direction: Optional direction ('G' or 'D'). If None, uses combined schedule.
         
     Returns:
-        Tuple of (first_hour, last_hour) as integers, or None if no schedule available
+        Tuple of (first_hour, last_hour, wraps_midnight) or None if unknown
     """
     try:
+        # Metro / rail: use topology first/last time when available.
+        if isinstance(line_code, str) and line_code and line_code[0] in ('M', 'F', 'T'):
+            metro_line = metro_service.get_line(line_code)
+            if metro_line:
+                first_t = _parse_time(metro_line.get('first_time') or '')
+                last_t = _parse_time(metro_line.get('last_time') or '')
+                if first_t and last_t:
+                    wraps = last_t < first_t
+                    return (first_t.hour, last_t.hour, wraps)
+
         schedule = schedule_service.get_schedule(line_code)
         
         # Collect times from specified direction(s)
@@ -68,14 +79,14 @@ def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optio
         last_hour = all_times[-1].hour
         
         logger.debug(f"Service hours for {line_code} direction {direction}: {first_hour}:00 - {last_hour}:00")
-        return (first_hour, last_hour)
+        return (first_hour, last_hour, False)
         
     except Exception as e:
         logger.error(f"Error getting service hours for {line_code}: {e}")
         return None
 
 
-def _is_hour_in_service(hour: int, service_hours: Optional[tuple]) -> bool:
+def _is_hour_in_service(hour: int, service_hours: Optional[Tuple[int, int, bool]]) -> bool:
     """
     Check if a given hour is within service hours.
     
@@ -92,10 +103,17 @@ def _is_hour_in_service(hour: int, service_hours: Optional[tuple]) -> bool:
         # No schedule data - assume in service (benefit of doubt)
         return True
     
-    first_hour, last_hour = service_hours
+    first_hour, last_hour, wraps_midnight = service_hours
+
     # Add +1 hour buffer after last departure for vehicles in transit
-    extended_last_hour = min(23, last_hour + 1)
-    return first_hour <= hour <= extended_last_hour
+    extended_last_hour = (last_hour + 1) % 24
+
+    if not wraps_midnight:
+        # Normal daytime service
+        return first_hour <= hour <= min(23, last_hour + 1)
+
+    # Wrap-around (e.g., 06:00 -> 00:30): service is [first..23] U [0..extended_last]
+    return hour >= first_hour or hour <= extended_last_hour
 
 class HourlyForecastResponse(BaseModel):
     hour: int = Field(..., ge=0, le=23, description="Hour of day (0-23)")

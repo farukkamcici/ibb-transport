@@ -17,6 +17,8 @@ from typing import Dict, Optional, List
 from cachetools import TTLCache
 import xml.etree.ElementTree as ET
 from .schedule_service import schedule_service
+from .metro_service import metro_service
+from zoneinfo import ZoneInfo
 
 logger = logging.getLogger(__name__)
 
@@ -49,6 +51,7 @@ class IETTStatusService:
 </soap:Envelope>"""
     
     def __init__(self):
+        self.tz = ZoneInfo('Europe/Istanbul')
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
@@ -88,12 +91,12 @@ class IETTStatusService:
                     minute = int(time_part[1].strip())
                     
                     # Combine with today's date
-                    today = datetime.now().date()
+                    today = datetime.now(self.tz).date()
                     update_time = datetime.combine(today, time(hour=hour, minute=minute))
                     
                     # If time is 04:00 (early morning update), it might be for today
                     # If current time is before 04:00, the update is from yesterday
-                    now = datetime.now()
+                    now = datetime.now(self.tz)
                     if now.hour < 4 and hour >= 4:
                         # It's past midnight but before 4am, update is from yesterday
                         update_time = update_time - timedelta(days=1)
@@ -170,7 +173,7 @@ class IETTStatusService:
             
             # Collect all alerts for this line
             alerts = []
-            now = datetime.now()
+            now = datetime.now(self.tz)
             cutoff_time = now - timedelta(hours=24)
             
             for item in alerts_data:
@@ -246,6 +249,30 @@ class IETTStatusService:
             Dictionary with in_operation (bool) and next_service_time (str or None)
         """
         try:
+            # Metro / rail: derive operation hours from topology instead of bus schedule.
+            if isinstance(line_code, str) and line_code and line_code[0] in ('M', 'F', 'T'):
+                line = metro_service.get_line(line_code)
+                if line:
+                    first_service = self._parse_time(line.get('first_time') or '')
+                    last_service = self._parse_time(line.get('last_time') or '')
+                    if not first_service or not last_service:
+                        return {"in_operation": True, "next_service_time": None}
+
+                    now = datetime.now(self.tz).time()
+                    wraps = last_service < first_service
+
+                    if not wraps:
+                        in_service = first_service <= now <= last_service
+                    else:
+                        # Example: 06:00 -> 00:30
+                        in_service = now >= first_service or now <= last_service
+
+                    if in_service:
+                        return {"in_operation": True, "next_service_time": None}
+
+                    # Out of service: next service is the daily first_service.
+                    return {"in_operation": False, "next_service_time": first_service.strftime("%H:%M")}
+
             schedule = schedule_service.get_schedule(line_code)
             
             # Get times from specified direction(s)
@@ -267,7 +294,7 @@ class IETTStatusService:
             all_times.sort()
             
             # Get current time
-            now = datetime.now().time()
+            now = datetime.now(self.tz).time()
             
             # Find first and last service times
             first_service = all_times[0]
@@ -321,9 +348,27 @@ class IETTStatusService:
         """
         logger.info(f"Fetching status for line {line_code}" + (f" direction {direction}" if direction else ""))
         
+        # Metro / rail: we don't use IETT bus alerts.
+        if isinstance(line_code, str) and line_code and line_code[0] in ('M', 'F', 'T'):
+            operation_info = self._check_operation_hours(line_code, direction=None)
+            if not operation_info["in_operation"]:
+                next_time = operation_info.get("next_service_time")
+                message = f"Hat şu an hizmet vermemektedir. İlk sefer: {next_time}" if next_time else "Hat şu an hizmet vermemektedir."
+                return {
+                    "status": LineStatus.OUT_OF_SERVICE,
+                    "alerts": [{"text": message, "time": "", "type": ""}],
+                    "next_service_time": next_time
+                }
+
+            return {
+                "status": LineStatus.ACTIVE,
+                "alerts": [],
+                "next_service_time": None
+            }
+
         # Step 1: Check for alerts (with caching - alerts don't change frequently)
         # Cache key for alerts includes date to ensure fresh data on new day
-        current_date = datetime.now().strftime('%Y-%m-%d')
+        current_date = datetime.now(self.tz).strftime('%Y-%m-%d')
         alerts_cache_key = f"alerts:{line_code}:{current_date}"
         
         if alerts_cache_key in _status_cache:

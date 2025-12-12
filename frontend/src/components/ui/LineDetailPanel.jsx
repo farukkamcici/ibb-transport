@@ -164,19 +164,17 @@ export default function LineDetailPanel() {
       
       const targetDate = new Date();
       
-      // Metro lines: only fetch forecast (no line status endpoint)
-      // Bus lines: fetch both forecast and line status
-      const promises = isMetroLine
-        ? [getForecast(selectedLine.id, targetDate, selectedDirection)]
-        : [
-            getForecast(selectedLine.id, targetDate, selectedDirection),
-            getLineStatus(selectedLine.id, selectedDirection)
-          ];
+      // Fetch forecast + status for all lines.
+      // (Metro/rail status uses topology hours server-side; bus uses IETT + schedule.)
+      const promises = [
+        getForecast(selectedLine.id, targetDate, selectedDirection),
+        getLineStatus(selectedLine.id, selectedDirection)
+      ];
       
       Promise.all(promises)
         .then((results) => {
           setForecastData(results[0]);
-          setLineStatus(isMetroLine ? null : results[1]);
+          setLineStatus(results[1]);
           setError(null);
         })
         .catch(err => {
@@ -609,19 +607,18 @@ export default function LineDetailPanel() {
                 {/* Card Layout */}
                 <div className="p-4 space-y-3">
                   
-                  {/* Status Banner - Only for Bus lines */}
-                  {!isMetroLine && (
-                    lineStatus && lineStatus.status !== 'ACTIVE' && (
-                      <StatusBanner 
-                        status={lineStatus} 
-                        onClick={() => {
-                          if (lineStatus.alerts && lineStatus.alerts.length > 0) {
-                            setIsAlertsModalOpen(true);
-                            vibrate(5);
-                          }
-                        }}
-                      />
-                    )
+                  {/* Status Banner */}
+                  {lineStatus && lineStatus.status !== 'ACTIVE' && (
+                    <StatusBanner 
+                      status={lineStatus} 
+                      onClick={() => {
+                        // Only bus alerts open the modal; metro/rail OUT_OF_SERVICE is informational.
+                        if (!isMetroLine && lineStatus.alerts && lineStatus.alerts.length > 0) {
+                          setIsAlertsModalOpen(true);
+                          vibrate(5);
+                        }
+                      }}
+                    />
                   )}
                   
                   {/* Cards Grid - Desktop: Side by Side, Mobile: Stacked */}
