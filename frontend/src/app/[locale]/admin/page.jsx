@@ -1,9 +1,25 @@
 "use client";
 import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
 import { useRouter, useParams } from 'next/navigation';
 import axios from 'axios';
 import { format, addDays } from 'date-fns';
+import {
+  Activity,
+  ShieldCheck,
+  Sparkles,
+  Trash2,
+  LayoutDashboard,
+  Wand2,
+  CalendarClock,
+  TrainFront,
+  FileText,
+  Users as UsersIcon,
+  ListChecks,
+  RefreshCw,
+  LogOut,
+  AlertTriangle,
+  DatabaseZap
+} from 'lucide-react';
 import SchedulerPanel from '@/components/admin/SchedulerPanel';
 import ForecastCoverage from '@/components/admin/ForecastCoverage';
 import UserManagement from '@/components/admin/UserManagement';
@@ -14,22 +30,22 @@ import { useAuth } from '@/contexts/AuthContext';
 
 // Tabs
 const tabs = [
-  { id: 'dashboard', name: 'Dashboard', icon: '📊' },
-  { id: 'operations', name: 'Operations', icon: '⚡' },
-  { id: 'scheduler', name: 'Scheduler', icon: '⏰' },
-  { id: 'metro-cache', name: 'Metro Cache', icon: '🚇' },
-  { id: 'reports', name: 'User Reports', icon: '📋' },
-  { id: 'users', name: 'Users', icon: '👥' },
-  { id: 'jobs', name: 'Job History', icon: '📜' },
+  { id: 'dashboard', name: 'Overview', icon: LayoutDashboard },
+  { id: 'operations', name: 'Forecast Ops', icon: Wand2 },
+  { id: 'scheduler', name: 'Scheduler', icon: CalendarClock },
+  { id: 'metro-cache', name: 'Metro Cache', icon: TrainFront },
+  { id: 'reports', name: 'Reports', icon: FileText },
+  { id: 'users', name: 'Users', icon: UsersIcon },
+  { id: 'jobs', name: 'Jobs', icon: ListChecks },
 ];
 
-const StatCard = ({ title, value, status, subtext, icon }) => (
-  <div className="bg-gray-900 border border-gray-800 p-6 rounded-xl shadow-sm hover:border-gray-700 transition-colors">
+const StatCard = ({ title, value, status, subtext, icon: Icon }) => (
+  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-5 shadow-sm backdrop-blur hover:border-white/15 transition-colors">
     <div className="flex items-start justify-between">
       <div className="flex-1">
-        <h3 className="text-gray-400 text-sm font-medium uppercase tracking-wider">{title}</h3>
+        <h3 className="text-[11px] font-semibold uppercase tracking-wider text-gray-400">{title}</h3>
         <div className="mt-2 flex items-baseline gap-2">
-          <span className="text-3xl font-bold text-white">{value}</span>
+          <span className="text-2xl font-bold text-white">{value}</span>
           {status && (
             <span className={`text-xs px-2 py-1 rounded-full ${
               status === 'SUCCESS' ? 'bg-green-900/50 text-green-400' :
@@ -43,13 +59,16 @@ const StatCard = ({ title, value, status, subtext, icon }) => (
         </div>
         {subtext && <p className="text-gray-500 text-xs mt-2">{subtext}</p>}
       </div>
-      {icon && <div className="text-3xl opacity-20">{icon}</div>}
+      {Icon && (
+        <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-slate-800/40">
+          <Icon className="h-5 w-5 text-gray-300" />
+        </div>
+      )}
     </div>
   </div>
 );
 
 function AdminDashboardContent() {
-  const t = useTranslations('admin');
   const router = useRouter();
   const params = useParams();
   const locale = params.locale || 'tr';
@@ -63,7 +82,6 @@ function AdminDashboardContent() {
   const [selectedError, setSelectedError] = useState(null);
   const [testResult, setTestResult] = useState(null);
   const [isTesting, setIsTesting] = useState(false);
-  const [featureStoreStats, setFeatureStoreStats] = useState(null);
   const [jobLimit, setJobLimit] = useState(20);
   const [schedulerStatus, setSchedulerStatus] = useState(null);
   const [forecastCoverage, setForecastCoverage] = useState(null);
@@ -88,10 +106,9 @@ function AdminDashboardContent() {
   const fetchData = async () => {
     try {
       const headers = getAuthHeaders();
-      const [statsRes, jobsRes, fsStatsRes, schedRes, covRes, reportsStatsRes, metroCacheRes] = await Promise.all([
+      const [statsRes, jobsRes, schedRes, covRes, reportsStatsRes, metroCacheRes] = await Promise.all([
         axios.get(`${API_URL}/admin/stats`, { headers }),
         axios.get(`${API_URL}/admin/jobs?limit=${jobLimit}`, { headers }),
-        axios.get(`${API_URL}/admin/feature-store/stats`, { headers }).catch(() => ({ data: null })),
         axios.get(`${API_URL}/admin/scheduler/status`, { headers }).catch(() => ({ data: null })),
         axios.get(`${API_URL}/admin/forecasts/coverage`, { headers }).catch(() => ({ data: null })),
         axios.get(`${API_URL}/admin/reports/stats/summary`, { headers }).catch(() => ({ data: null })),
@@ -99,7 +116,6 @@ function AdminDashboardContent() {
       ]);
       setStats(statsRes.data);
       setJobs(jobsRes.data);
-      setFeatureStoreStats(fsStatsRes.data);
       setSchedulerStatus(schedRes.data);
       setForecastCoverage(covRes.data);
       setMetroCacheStatus(metroCacheRes.data);
@@ -224,54 +240,111 @@ function AdminDashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <div className="bg-gray-900 border-b border-gray-800 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                Admin Panel
-              </h1>
-              <p className="text-gray-400 text-sm mt-1">
-                Istanbul Transport Platform · <span className="text-blue-400 font-mono text-xs">@{user?.username}</span>
-              </p>
-            </div>
+    <div className="min-h-screen bg-slate-950 text-white">
+      <div className="flex min-h-screen">
+        {/* Sidebar (desktop) */}
+        <aside className="hidden lg:flex w-64 flex-col border-r border-white/10 bg-slate-950/80">
+          <div className="px-4 py-4 border-b border-white/10">
+            <div className="text-sm text-gray-400">Istanbul Transport</div>
+            <div className="text-lg font-semibold tracking-tight">Admin</div>
+            <div className="mt-2 text-xs text-gray-500 font-mono">@{user?.username}</div>
+          </div>
+          <nav className="p-2 space-y-1">
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              const active = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`w-full flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors relative ${
+                    active
+                      ? 'bg-white/10 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  }`}
+                >
+                  <Icon className={`h-4 w-4 ${active ? 'text-white' : 'text-gray-400'}`} />
+                  <span className="flex-1 text-left">{tab.name}</span>
+                  {tab.id === 'reports' && newReportsCount > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                      {newReportsCount > 9 ? '9+' : newReportsCount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+          <div className="mt-auto p-3 border-t border-white/10">
             <button
               onClick={handleLogout}
-              className="px-4 py-2 text-sm font-medium text-gray-400 hover:text-red-400 hover:bg-red-900/20 rounded-lg transition-all border border-gray-800 hover:border-red-900/50"
+              className="w-full flex items-center justify-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-gray-200 hover:bg-white/10"
             >
-              🔒 Logout
+              <LogOut className="h-4 w-4" />
+              Logout
             </button>
           </div>
-          
-          {/* Tabs */}
-          <div className="mt-6 flex gap-2 overflow-x-auto pb-2 scrollbar-thin scrollbar-thumb-gray-700">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-all flex items-center gap-2 relative ${
-                  activeTab === tab.id
-                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50'
-                    : 'text-gray-400 hover:text-white hover:bg-gray-800'
-                }`}
-              >
-                <span>{tab.icon}</span>
-                <span>{tab.name}</span>
-                {tab.id === 'reports' && newReportsCount > 0 && (
-                  <span className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 bg-red-500 text-white text-xs font-bold rounded-full animate-pulse">
-                    {newReportsCount > 9 ? '9+' : newReportsCount}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+        </aside>
 
-      {/* Content */}
-      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex-1 min-w-0">
+          {/* Top bar */}
+          <div className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/80 backdrop-blur">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
+              <div className="min-w-0">
+                <div className="text-xs text-gray-400">Admin</div>
+                <div className="text-base font-semibold truncate">
+                  {tabs.find((t) => t.id === activeTab)?.name}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={fetchData}
+                  className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-200 hover:bg-white/10"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="lg:hidden inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-semibold text-gray-200 hover:bg-white/10"
+                >
+                  <LogOut className="h-4 w-4" />
+                  Logout
+                </button>
+              </div>
+            </div>
+
+            {/* Tabs (mobile) */}
+            <div className="lg:hidden px-4 sm:px-6 pb-3 overflow-x-auto">
+              <div className="flex gap-2">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  const active = activeTab === tab.id;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold whitespace-nowrap border ${
+                        active
+                          ? 'bg-white/10 text-white border-white/10'
+                          : 'bg-transparent text-gray-400 border-transparent hover:bg-white/5'
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      {tab.name}
+                      {tab.id === 'reports' && newReportsCount > 0 && (
+                        <span className="ml-1 inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+                          {newReportsCount > 9 ? '9+' : newReportsCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         {/* Messages */}
         {triggerMessage && (
           <div className={`mb-6 p-4 rounded-lg text-sm border flex items-center gap-3 ${
@@ -288,57 +361,25 @@ function AdminDashboardContent() {
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <StatCard
-                icon="🚌"
+                icon={TrainFront}
                 title="Total Lines"
                 value={stats.total_lines}
                 subtext="Active transport lines"
               />
               <StatCard
-                icon="📈"
+                icon={DatabaseZap}
                 title="Forecast Records"
                 value={stats.total_forecasts.toLocaleString()}
                 subtext="Hourly predictions stored"
               />
               <StatCard
-                icon="⚙️"
+                icon={CalendarClock}
                 title="Last Execution"
                 value={stats.last_run_status}
                 status={stats.last_run_status}
                 subtext={stats.last_run_time ? format(new Date(stats.last_run_time), 'MMM d, HH:mm:ss') : 'Never'}
               />
             </div>
-
-            {featureStoreStats?.fallback_stats && (
-              <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-                <h3 className="text-lg font-bold text-white mb-4">📊 Feature Store Statistics</h3>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                  <div className="bg-gray-950 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Total Requests</div>
-                    <div className="text-2xl font-bold text-white">
-                      {featureStoreStats.fallback_stats.total_requests?.toLocaleString() || 0}
-                    </div>
-                  </div>
-                  <div className="bg-gray-950 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Seasonal Match</div>
-                    <div className="text-2xl font-bold text-green-400">
-                      {featureStoreStats.fallback_stats.seasonal_pct?.toFixed(1) || 0}%
-                    </div>
-                  </div>
-                  <div className="bg-gray-950 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Hour Fallback</div>
-                    <div className="text-2xl font-bold text-yellow-400">
-                      {featureStoreStats.fallback_stats.hour_fallback_pct?.toFixed(1) || 0}%
-                    </div>
-                  </div>
-                  <div className="bg-gray-950 rounded-lg p-4">
-                    <div className="text-xs text-gray-500 mb-1">Zero Fallback</div>
-                    <div className="text-2xl font-bold text-red-400">
-                      {featureStoreStats.fallback_stats.zero_fallback_pct?.toFixed(1) || 0}%
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
 
             <ForecastCoverage coverage={forecastCoverage} onDeleteDate={handleDeleteDate} />
           </div>
@@ -348,27 +389,27 @@ function AdminDashboardContent() {
         {activeTab === 'operations' && (
           <div className="space-y-6">
             {/* Control Panel */}
-            <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-              <h3 className="text-lg font-bold text-white mb-6">⚡ Forecast Operations</h3>
+            <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
+              <h3 className="text-base font-semibold text-white mb-4">Forecast Operations</h3>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {/* Date Picker */}
-                <div className="bg-gray-950 rounded-lg p-4">
+                <div className="bg-black/20 rounded-lg p-4 border border-white/5">
                   <label className="block text-xs text-gray-500 font-bold uppercase mb-2">Start Date</label>
                   <input
                     type="date"
                     value={selectedDate}
                     onChange={(e) => setSelectedDate(e.target.value)}
-                    className="w-full bg-gray-900 text-white px-3 py-2 rounded-lg border border-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full bg-slate-950/60 text-white px-3 py-2 rounded-lg border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   />
                 </div>
 
                 {/* Number of Days */}
-                <div className="bg-gray-950 rounded-lg p-4">
+                <div className="bg-black/20 rounded-lg p-4 border border-white/5">
                   <label className="block text-xs text-gray-500 font-bold uppercase mb-2">Number of Days</label>
                   <select
                     value={numDays}
                     onChange={(e) => setNumDays(Number(e.target.value))}
-                    className="w-full bg-gray-900 text-white px-3 py-2 rounded-lg border border-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-600"
+                    className="w-full bg-slate-950/60 text-white px-3 py-2 rounded-lg border border-white/10 focus:outline-none focus:ring-2 focus:ring-blue-600"
                   >
                     <option value={1}>1 day (T+1)</option>
                     <option value={2}>2 days (T+1, T+2)</option>
@@ -377,26 +418,26 @@ function AdminDashboardContent() {
                 </div>
 
                 {/* Run Forecast */}
-                <div className="bg-gray-950 rounded-lg p-4 flex flex-col">
+                <div className="bg-black/20 rounded-lg p-4 flex flex-col border border-white/5">
                   <label className="block text-xs text-gray-500 font-bold uppercase mb-2">Generate Forecast</label>
                   <button
                     onClick={handleTrigger}
                     disabled={isLoading}
                     className="flex-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {isLoading ? '⏳ Running...' : '▶️ Run Forecast'}
+                    {isLoading ? 'Running…' : 'Run Forecast'}
                   </button>
                 </div>
 
                 {/* Test */}
-                <div className="bg-gray-950 rounded-lg p-4 flex flex-col">
+                <div className="bg-black/20 rounded-lg p-4 flex flex-col border border-white/5">
                   <label className="block text-xs text-gray-500 font-bold uppercase mb-2">Quick Test</label>
                   <button
                     onClick={handleTest}
                     disabled={isTesting}
                     className="flex-1 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold transition-all disabled:opacity-50"
                   >
-                    {isTesting ? '⏳ Testing...' : '🧪 Test Run'}
+                    {isTesting ? 'Testing…' : 'Run Test'}
                   </button>
                 </div>
               </div>
@@ -406,7 +447,7 @@ function AdminDashboardContent() {
                   onClick={handleReset}
                   className="w-full bg-red-900/20 hover:bg-red-900/30 text-red-400 border border-red-900/50 rounded-lg py-3 font-medium transition-all"
                 >
-                  🔄 Reset Stuck Jobs
+                  Reset Stuck Jobs
                 </button>
               </div>
             </div>
@@ -453,9 +494,9 @@ function AdminDashboardContent() {
             )}
 
             {/* Danger Zone */}
-            <div className="bg-red-950/20 border-2 border-red-900/50 rounded-xl p-6">
+            <div className="rounded-xl border border-red-900/50 bg-red-950/20 p-6">
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-2xl">⚠️</span>
+                <AlertTriangle className="h-5 w-5 text-red-300" />
                 <div>
                   <h3 className="text-lg font-bold text-red-400">Danger Zone</h3>
                   <p className="text-gray-400 text-sm mt-1">Irreversible database operations</p>
@@ -513,15 +554,18 @@ function AdminDashboardContent() {
 
         {/* Jobs Tab */}
         {activeTab === 'jobs' && (
-          <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
-            <div className="p-5 border-b border-gray-800 bg-gray-900/50 flex justify-between items-center">
-              <h3 className="text-lg font-bold text-white">Job Execution History</h3>
+          <div className="rounded-xl border border-white/10 bg-slate-900/40 overflow-hidden">
+            <div className="p-5 border-b border-white/10 bg-white/[0.03] flex justify-between items-center">
+              <div>
+                <h3 className="text-sm font-semibold text-white">Job History</h3>
+                <p className="text-[11px] text-gray-500 mt-0.5">Latest executions and outcomes</p>
+              </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs text-gray-500">Show:</label>
                 <select
                   value={jobLimit}
                   onChange={(e) => setJobLimit(Number(e.target.value))}
-                  className="bg-gray-800 text-white text-xs px-2 py-1 rounded border border-gray-700 focus:outline-none focus:border-blue-600"
+                  className="bg-slate-950/60 text-white text-xs px-2 py-1 rounded border border-white/10 focus:outline-none focus:border-blue-600"
                 >
                   <option value={10}>10</option>
                   <option value={20}>20</option>
@@ -532,7 +576,7 @@ function AdminDashboardContent() {
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-gray-400">
-                <thead className="bg-gray-950 text-gray-300 uppercase text-xs font-bold tracking-wider border-b border-gray-800">
+                <thead className="bg-black/30 text-gray-300 uppercase text-[10px] font-semibold tracking-wider border-b border-white/10">
                   <tr>
                     <th className="px-6 py-4">Job Type</th>
                     <th className="px-6 py-4">Status</th>
@@ -542,7 +586,7 @@ function AdminDashboardContent() {
                     <th className="px-6 py-4 text-right">Records</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800/50">
+                <tbody className="divide-y divide-white/5">
                   {jobs.map((job) => {
                     const duration = job.end_time
                       ? ((new Date(job.end_time) - new Date(job.start_time)) / 1000).toFixed(1) + 's'
@@ -550,20 +594,23 @@ function AdminDashboardContent() {
                     
                     // Job type icons and colors
                     const jobTypeConfig = {
-                      'daily_forecast': { icon: '🔮', color: 'text-blue-400', label: 'Forecast' },
-                      'cleanup_old_forecasts': { icon: '🗑️', color: 'text-red-400', label: 'Cleanup' },
-                      'data_quality_check': { icon: '🔍', color: 'text-green-400', label: 'Quality Check' },
-                      'metro_schedule_prefetch': { icon: '🚇', color: 'text-purple-400', label: 'Metro Cache' }
+                      'daily_forecast': { icon: Sparkles, color: 'text-blue-300', label: 'Forecast' },
+                      'cleanup_old_forecasts': { icon: Trash2, color: 'text-red-300', label: 'Cleanup' },
+                      'data_quality_check': { icon: ShieldCheck, color: 'text-green-300', label: 'Quality Check' },
+                      'metro_schedule_prefetch': { icon: TrainFront, color: 'text-purple-300', label: 'Metro Cache' }
                     };
-                    const config = jobTypeConfig[job.job_type] || { icon: '⚙️', color: 'text-gray-400', label: job.job_type };
+                    const config = jobTypeConfig[job.job_type] || { icon: Activity, color: 'text-gray-300', label: job.job_type };
+                    const JobIcon = config.icon;
 
                     return (
-                      <tr key={job.id} className="hover:bg-gray-800/40 transition-colors">
+                      <tr key={job.id} className="hover:bg-white/[0.03] transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <span className="text-lg">{config.icon}</span>
+                            <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-black/20">
+                              <JobIcon className={`h-4 w-4 ${config.color}`} />
+                            </span>
                             <div className="flex flex-col">
-                              <span className={`text-sm font-bold ${config.color}`}>{config.label}</span>
+                              <span className={`text-sm font-semibold ${config.color}`}>{config.label}</span>
                               {job.job_metadata?.num_days && job.job_metadata.num_days > 1 && (
                                 <span className="text-[10px] text-gray-500">({job.job_metadata.num_days} days)</span>
                               )}
@@ -587,7 +634,7 @@ function AdminDashboardContent() {
                             {job.error_message && (
                               <button
                                 onClick={() => setSelectedError(job.error_message)}
-                                className="text-[10px] text-red-400 hover:text-white underline"
+                                className="text-[10px] text-red-300 hover:text-red-200 underline"
                               >
                                 View Error
                               </button>
@@ -630,12 +677,15 @@ function AdminDashboardContent() {
       {/* Error Modal */}
       {selectedError && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-red-900/50 rounded-xl max-w-3xl w-full p-6 shadow-2xl">
+          <div className="rounded-xl border border-white/10 bg-slate-900/80 max-w-3xl w-full p-6 shadow-2xl">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-red-400">⚠️ Error Log</h3>
+              <h3 className="text-sm font-semibold text-red-200 flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                Error Log
+              </h3>
               <button onClick={() => setSelectedError(null)} className="text-gray-500 hover:text-white">✕</button>
             </div>
-            <div className="bg-black rounded-lg p-4 border border-gray-800">
+            <div className="bg-black/40 rounded-lg p-4 border border-white/10">
               <pre className="text-xs text-gray-300 overflow-auto max-h-[60vh] whitespace-pre-wrap font-mono">
                 {selectedError}
               </pre>
@@ -700,6 +750,8 @@ function AdminDashboardContent() {
           </div>
         </div>
       )}
+        </div>
+      </div>
     </div>
   );
 }

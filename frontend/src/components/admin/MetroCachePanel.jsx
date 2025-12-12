@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { formatDistanceToNow, format } from 'date-fns';
+import { AlertTriangle, Database, RefreshCw, Target, TrainFront, Trash2 } from 'lucide-react';
 
 export default function MetroCachePanel({ status, getAuthHeaders, onRefresh }) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -13,7 +14,7 @@ export default function MetroCachePanel({ status, getAuthHeaders, onRefresh }) {
 
   if (!status) {
     return (
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
         <p className="text-sm text-gray-400">Loading metro cache status...</p>
       </div>
     );
@@ -91,10 +92,13 @@ export default function MetroCachePanel({ status, getAuthHeaders, onRefresh }) {
 
   return (
     <div className="space-y-5">
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+      <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
         <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
           <div>
-            <h3 className="text-white text-lg font-bold flex items-center gap-2">🚇 Metro Timetable Cache</h3>
+            <h3 className="text-white text-sm font-semibold flex items-center gap-2">
+              <TrainFront className="h-4 w-4 text-gray-200" />
+              Metro Timetable Cache
+            </h3>
             {runtime.last_run && (
               <p className="text-xs text-gray-500">
                 Last run {formatDistanceToNow(new Date(runtime.last_run), { addSuffix: true })}
@@ -105,16 +109,18 @@ export default function MetroCachePanel({ status, getAuthHeaders, onRefresh }) {
             <button
               onClick={() => triggerRefresh(false)}
               disabled={isRefreshing}
-              className="px-4 py-2 text-xs font-bold rounded-lg bg-blue-900/20 border border-blue-800 text-blue-300 hover:bg-blue-900/30 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-white/5 border border-white/10 text-gray-200 hover:bg-white/10 disabled:opacity-50"
             >
-              🔄 Refresh All
+              <RefreshCw className="h-3.5 w-3.5" />
+              Refresh All
             </button>
             <button
               onClick={() => triggerRefresh(true)}
               disabled={isRefreshing}
-              className="px-4 py-2 text-xs font-bold rounded-lg bg-purple-900/20 border border-purple-800 text-purple-300 hover:bg-purple-900/30 disabled:opacity-50"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold rounded-lg bg-red-950/25 border border-red-900/40 text-red-200 hover:bg-red-950/40 disabled:opacity-50"
             >
-              ⚠️ Force Refresh
+              <AlertTriangle className="h-3.5 w-3.5" />
+              Force Refresh
             </button>
           </div>
         </div>
@@ -145,62 +151,73 @@ export default function MetroCachePanel({ status, getAuthHeaders, onRefresh }) {
         </div>
 
         <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-gray-950/70 border border-gray-800 rounded-lg p-4">
-            <h4 className="text-sm font-bold text-white mb-2">Refresh Single Pair</h4>
+          <div className="bg-black/20 border border-white/10 rounded-xl p-4">
+            <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+              <Target className="h-4 w-4 text-gray-300" />
+              Refresh Single Pair
+            </h4>
             <div className="space-y-2">
               <input
                 type="number"
                 placeholder="Station ID"
-                className="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-sm text-white"
+                className="w-full bg-slate-950/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
                 value={pairForm.stationId}
                 onChange={(e) => setPairForm({ ...pairForm, stationId: e.target.value })}
               />
               <input
                 type="number"
                 placeholder="Direction ID"
-                className="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-sm text-white"
+                className="w-full bg-slate-950/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
                 value={pairForm.directionId}
                 onChange={(e) => setPairForm({ ...pairForm, directionId: e.target.value })}
               />
               <input
                 type="date"
-                className="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-sm text-white"
+                className="w-full bg-slate-950/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
                 value={pairForm.targetDate}
                 onChange={(e) => setPairForm({ ...pairForm, targetDate: e.target.value })}
               />
               <button
                 onClick={triggerPairRefresh}
                 disabled={isRefreshing}
-                className="w-full bg-blue-900/30 border border-blue-800 rounded-lg py-2 text-xs font-bold text-blue-200 hover:bg-blue-900/40 disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 bg-blue-950/25 border border-blue-900/40 rounded-lg py-2 text-xs font-semibold text-blue-200 hover:bg-blue-950/40 disabled:opacity-50"
               >
-                🎯 Refresh Pair
+                <Target className="h-3.5 w-3.5" />
+                Refresh Pair
               </button>
             </div>
           </div>
 
-          <div className="bg-gray-950/70 border border-gray-800 rounded-lg p-4">
-            <h4 className="text-sm font-bold text-white mb-2">Cleanup Old Rows</h4>
+          <div className="bg-black/20 border border-white/10 rounded-xl p-4">
+            <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-gray-300" />
+              Cleanup Old Rows
+            </h4>
             <div className="space-y-2">
               <input
                 type="number"
                 min="1"
-                className="w-full bg-gray-900 border border-gray-800 rounded px-3 py-2 text-sm text-white"
+                className="w-full bg-slate-950/60 border border-white/10 rounded-lg px-3 py-2 text-sm text-white"
                 value={cleanupDays}
                 onChange={(e) => setCleanupDays(Number(e.target.value))}
               />
               <button
                 onClick={triggerCleanup}
                 disabled={isRefreshing}
-                className="w-full bg-amber-900/30 border border-amber-800 rounded-lg py-2 text-xs font-bold text-amber-200 hover:bg-amber-900/40 disabled:opacity-50"
+                className="w-full inline-flex items-center justify-center gap-2 bg-amber-950/25 border border-amber-900/40 rounded-lg py-2 text-xs font-semibold text-amber-200 hover:bg-amber-950/40 disabled:opacity-50"
               >
-                🧹 Cleanup
+                <Trash2 className="h-3.5 w-3.5" />
+                Cleanup
               </button>
               <p className="text-[11px] text-gray-500">Rows older than this many days will be deleted.</p>
             </div>
           </div>
 
-          <div className="bg-gray-950/70 border border-gray-800 rounded-lg p-4">
-            <h4 className="text-sm font-bold text-white mb-2">Storage Info</h4>
+          <div className="bg-black/20 border border-white/10 rounded-xl p-4">
+            <h4 className="text-sm font-semibold text-white mb-2 flex items-center gap-2">
+              <Database className="h-4 w-4 text-gray-300" />
+              Storage Info
+            </h4>
             <ul className="text-xs text-gray-400 space-y-1">
               <li>Entries: <span className="text-white font-bold">{storage.entries_total || 0}</span></li>
               <li>Retention: {storage.retention_days || 5} days</li>
@@ -215,7 +232,7 @@ export default function MetroCachePanel({ status, getAuthHeaders, onRefresh }) {
         </div>
       </div>
 
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
+      <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
         <div className="flex items-center justify-between mb-3">
           <h4 className="text-white font-bold text-sm">Pending Pairs ({pendingPairs.length})</h4>
           {runtime.target_date && (
@@ -269,7 +286,7 @@ function Stat({ title, value, subtext, status }) {
   };
 
   return (
-    <div className="bg-gray-950/70 border border-gray-800 rounded-lg p-4">
+    <div className="bg-black/20 border border-white/10 rounded-xl p-4">
       <p className="text-xs uppercase tracking-wide text-gray-500">{title}</p>
       <p className={`text-3xl font-bold text-white ${status ? colorMap[status] : ''}`}>{value}</p>
       {subtext && <p className="text-[11px] text-gray-500 mt-1">{subtext}</p>}

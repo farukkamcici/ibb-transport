@@ -196,33 +196,6 @@ def reset_stuck_jobs(
     return {"message": f"Reset {reset_count} stuck job(s) to FAILED status.", "reset_count": reset_count}
 
 
-@router.get("/admin/feature-store/stats")
-def get_feature_store_stats(
-    store: FeatureStore = Depends(get_feature_store),
-    current_user: AdminUser = Depends(get_current_user)
-):
-    """
-    Get Feature Store fallback strategy statistics.
-    Shows how often seasonal vs. hour-based vs. zero fallbacks are used.
-    """
-    return {
-        "fallback_stats": store.get_fallback_stats(),
-        "config": {
-            "max_seasonal_lookback_years": store.max_seasonal_lookback_years
-        }
-    }
-
-
-@router.post("/admin/feature-store/reset-stats")
-def reset_feature_store_stats(
-    store: FeatureStore = Depends(get_feature_store),
-    current_user: AdminUser = Depends(get_current_user)
-):
-    """Reset fallback statistics counter."""
-    store.reset_fallback_stats()
-    return {"message": "Fallback statistics reset successfully."}
-
-
 @router.get("/admin/scheduler/status")
 def get_scheduler_status(current_user: AdminUser = Depends(get_current_user)):
     """Get current status of all cron jobs"""

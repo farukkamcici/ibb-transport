@@ -1,19 +1,27 @@
 "use client";
 import { format, parseISO } from 'date-fns';
+import { CalendarDays, Trash2 } from 'lucide-react';
 
 export default function ForecastCoverage({ coverage, onDeleteDate }) {
   if (!coverage || !coverage.coverage) return null;
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-md font-bold text-white tracking-wide">📅 Forecast Coverage (Next 7 Days)</h3>
-        <div className="text-xs text-gray-500">Multi-day window: T-1, T, T+1</div>
+    <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
+      <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
+        <div className="flex items-start gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-white/10 bg-slate-800/40">
+            <CalendarDays className="h-4 w-4 text-gray-200" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-white">Forecast Coverage</h3>
+            <p className="text-[11px] text-gray-500">Next 7 days (includes T-1, T, T+1)</p>
+          </div>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-950 text-gray-300 uppercase text-xs font-bold tracking-wider border-b border-gray-800">
+          <thead className="bg-black/30 text-gray-300 uppercase text-[10px] font-semibold tracking-wider border-b border-white/10">
             <tr>
               <th className="px-4 py-3 text-left">Date</th>
               <th className="px-4 py-3 text-center">Status</th>
@@ -22,7 +30,7 @@ export default function ForecastCoverage({ coverage, onDeleteDate }) {
               <th className="px-4 py-3 text-center">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800/50">
+          <tbody className="divide-y divide-white/5">
             {coverage.coverage.map((item, index) => {
               const date = parseISO(item.date);
               const today = new Date();
@@ -35,9 +43,7 @@ export default function ForecastCoverage({ coverage, onDeleteDate }) {
               const isFuture = dateObj > today;
 
               return (
-                <tr key={item.date} className={`hover:bg-gray-800/40 transition-colors ${
-                  isToday ? 'bg-blue-950/20' : ''
-                }`}>
+                <tr key={item.date} className={`hover:bg-white/[0.03] transition-colors ${isToday ? 'bg-blue-950/10' : ''}`}>
                   <td className="px-4 py-3">
                     <div className="flex flex-col">
                       <span className="text-white font-bold">{format(date, 'MMM dd, yyyy')}</span>
@@ -47,10 +53,10 @@ export default function ForecastCoverage({ coverage, onDeleteDate }) {
                     </div>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span className={`px-3 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1.5 ${
-                      item.status === 'complete' ? 'bg-green-950 text-green-400 border border-green-900' :
-                      item.status === 'partial' ? 'bg-yellow-950 text-yellow-400 border border-yellow-900' :
-                      'bg-red-950 text-red-400 border border-red-900'
+                    <span className={`px-3 py-1 rounded-full text-xs font-semibold inline-flex items-center gap-1.5 border ${
+                      item.status === 'complete' ? 'bg-green-950/30 text-green-300 border-green-900/40' :
+                      item.status === 'partial' ? 'bg-yellow-950/30 text-yellow-300 border-yellow-900/40' :
+                      'bg-red-950/30 text-red-300 border-red-900/40'
                     }`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${
                         item.status === 'complete' ? 'bg-green-400' :
@@ -70,10 +76,11 @@ export default function ForecastCoverage({ coverage, onDeleteDate }) {
                     {item.forecast_count > 0 && (
                       <button
                         onClick={() => onDeleteDate(item.date)}
-                        className="text-xs text-red-400 hover:text-red-300 hover:bg-red-900/20 px-3 py-1.5 rounded-lg transition-all border border-transparent hover:border-red-900/50"
+                        className="inline-flex items-center gap-1.5 text-xs font-semibold text-red-300 hover:text-red-200 hover:bg-red-950/30 px-3 py-1.5 rounded-lg transition-colors border border-red-900/30"
                         title={`Delete ${item.forecast_count} forecasts`}
                       >
-                        🗑️ Delete
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
                       </button>
                     )}
                   </td>
@@ -84,7 +91,7 @@ export default function ForecastCoverage({ coverage, onDeleteDate }) {
         </table>
       </div>
 
-      <div className="mt-4 flex items-center gap-4 text-xs text-gray-500">
+      <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-gray-500">
         <div className="flex items-center gap-2">
           <div className="w-3 h-3 rounded-full bg-green-400"></div>
           <span>Complete (&gt;10k)</span>

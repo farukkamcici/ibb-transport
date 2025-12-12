@@ -263,23 +263,6 @@ def data_quality_check():
                     issues.append(issue)
                     logger.warning(f"⚠️  {issue}")
             
-            # Feature Store health check
-            try:
-                store = get_feature_store()
-                fs_stats = store.get_fallback_stats()
-                
-                # Alert if zero fallback rate is high (>5%)
-                zero_pct = fs_stats.get('zero_fallback_pct', 0)
-                if zero_pct > 5:
-                    issue = f"High zero fallback rate: {zero_pct:.1f}% (data quality concern)"
-                    issues.append(issue)
-                    logger.warning(f"⚠️  {issue}")
-                
-                logger.info(f"📊 Feature Store: {fs_stats.get('seasonal_pct', 0):.1f}% seasonal matches")
-                
-            except Exception as e:
-                logger.error(f"Feature Store check failed: {e}")
-            
             # Summary
             job_stats[job_name]['last_run'] = datetime.now()
             job_stats[job_name]['run_count'] += 1
