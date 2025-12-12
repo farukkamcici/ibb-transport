@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
-import { useRouter } from 'next/navigation';
+import { useLocale, useTranslations } from 'next-intl';
+import { useRouter } from '@/i18n/routing';
 import BottomNav from '@/components/ui/BottomNav';
 import LineDetailPanel from '@/components/ui/LineDetailPanel';
 import useAppStore from '@/store/useAppStore';
@@ -20,6 +20,7 @@ const crowdLevelConfig = {
 
 function FavoriteLineCard({ lineId }) {
   const t = useTranslations('forecast');
+  const locale = useLocale();
   const getTransportLabel = useGetTransportLabel();
   const { setSelectedLine } = useAppStore();
   const [metadata, setMetadata] = useState(null);
@@ -129,7 +130,7 @@ function FavoriteLineCard({ lineId }) {
             {t('occupancy')}: {currentStatus.occupancy_pct}%
           </span>
           <span>
-            {t('passengers')}: {Math.round(currentStatus.predicted_value).toLocaleString()}
+            {t('passengers')}: {Math.round(currentStatus.predicted_value).toLocaleString(locale === 'tr' ? 'tr-TR' : 'en-US')}
           </span>
         </div>
       )}

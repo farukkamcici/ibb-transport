@@ -200,7 +200,7 @@ export default function MetroScheduleWidget({
                     {trip.timeStr}
                   </span>
                   <span className="text-[9px] text-gray-500">
-                    {trip.diff === 0 ? 'Peronda' : trip.diff < 60 ? `${trip.diff} ${t('minutes')}` : `${Math.floor(trip.diff / 60)}h ${trip.diff % 60}m`}
+                    {trip.diff === 0 ? t('onPlatform') : trip.diff < 60 ? `${trip.diff} ${t('minutes')}` : `${Math.floor(trip.diff / 60)} ${t('hours')} ${trip.diff % 60} ${t('minutes')}`}
                   </span>
                 </div>
               ))}
@@ -225,7 +225,7 @@ export default function MetroScheduleWidget({
                     {trip.timeStr}
                   </span>
                   <span className="text-[9px] text-gray-500 mt-0.5 truncate">
-                    {trip.diff === 0 ? 'Peronda' : trip.diff < 60 ? `${trip.diff} ${t('minutes')}` : `${Math.floor(trip.diff / 60)}h ${trip.diff % 60}m`}
+                    {trip.diff === 0 ? t('onPlatform') : trip.diff < 60 ? `${trip.diff} ${t('minutes')}` : `${Math.floor(trip.diff / 60)} ${t('hours')} ${trip.diff % 60} ${t('minutes')}`}
                   </span>
                 </div>
               ))}
@@ -267,7 +267,7 @@ export default function MetroScheduleWidget({
                 {trip.timeStr}
               </span>
               <span className="text-xs text-gray-500">
-                {trip.diff === 0 ? 'Peronda' : trip.diff < 60 ? `${trip.diff} ${t('minutes')}` : `${Math.floor(trip.diff / 60)}:${String(trip.diff % 60).padStart(2, '0')} ${t('hours')}`}
+                {trip.diff === 0 ? t('onPlatform') : trip.diff < 60 ? `${trip.diff} ${t('minutes')}` : `${Math.floor(trip.diff / 60)}:${String(trip.diff % 60).padStart(2, '0')} ${t('hours')}`}
               </span>
             </div>
           ))}

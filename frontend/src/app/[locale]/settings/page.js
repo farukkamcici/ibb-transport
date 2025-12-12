@@ -68,7 +68,7 @@ export default function SettingsPage() {
 
   const handleClearFavorites = () => {
     if (favorites.length === 0) {
-      alert(t('noFavorites', { defaultValue: 'No favorites to clear' }));
+      alert(t('noFavorites'));
       return;
     }
     
@@ -84,11 +84,11 @@ export default function SettingsPage() {
       localStorage.removeItem('ibb-transport-storage');
       useAppStore.persist.clearStorage();
       setShowConfirm(null);
-      alert(t('favoritesCleared', { defaultValue: 'Favorites cleared successfully!' }));
+      alert(t('favoritesCleared'));
       window.location.reload();
     } catch (error) {
       console.error('Error clearing favorites:', error);
-      alert(t('errorClearing', { defaultValue: 'Failed to clear favorites' }));
+      alert(t('errorClearing'));
     }
   };
 
@@ -109,7 +109,7 @@ export default function SettingsPage() {
       window.location.reload();
     } catch (error) {
       console.error('Error resetting app:', error);
-      alert(t('errorResetting', { defaultValue: 'Failed to reset application' }));
+      alert(t('errorResetting'));
     }
   };
 
@@ -119,13 +119,13 @@ export default function SettingsPage() {
         <div className="p-6 pt-12">
           <h1 className="text-2xl font-bold text-primary">{t('title')}</h1>
           <p className="text-sm text-gray-400 mt-1">
-            {t('subtitle', { defaultValue: 'Customize your experience' })}
+            {t('subtitle')}
           </p>
         </div>
 
         <SettingSection
-          title={t('preferences', { defaultValue: 'Preferences' })}
-          description={t('preferencesDesc', { defaultValue: 'Language and display settings' })}
+          title={t('preferences')}
+          description={t('preferencesDesc')}
           icon={Globe}
         >
           <SettingItem
@@ -137,19 +137,19 @@ export default function SettingsPage() {
             icon={Moon}
             label={t('theme')}
             value="Dark"
-            description={t('themeDesc', { defaultValue: 'Currently dark theme only' })}
+            description={t('themeDesc')}
           />
         </SettingSection>
 
         <SettingSection
-          title={t('dataStorage', { defaultValue: 'Data & Storage' })}
-          description={t('dataStorageDesc', { defaultValue: 'Manage your local data' })}
+          title={t('dataStorage')}
+          description={t('dataStorageDesc')}
           icon={Database}
         >
           <SettingItem
             icon={Star}
-            label={t('clearFavorites', { defaultValue: 'Clear Favorites' })}
-            description={`${favorites.length} ${t('savedLines', { defaultValue: 'saved lines' })}`}
+            label={t('clearFavorites')}
+            description={`${favorites.length} ${t('savedLines')}`}
             action={
               <button
                 onClick={handleClearFavorites}
@@ -167,59 +167,59 @@ export default function SettingsPage() {
           />
           <SettingItem
             icon={RefreshCw}
-            label={t('resetApp', { defaultValue: 'Reset Application' })}
-            description={t('resetAppDesc', { defaultValue: 'Clear all caches and reload' })}
+            label={t('resetApp')}
+            description={t('resetAppDesc')}
             danger
             action={
               <button
                 onClick={handleResetApp}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-red-500/10 border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-colors"
               >
-                {t('reset', { defaultValue: 'Reset' })}
+                {t('reset')}
               </button>
             }
           />
         </SettingSection>
 
         <SettingSection
-          title={t('supportFeedback', { defaultValue: 'Support & Feedback' })}
-          description={t('supportDesc', { defaultValue: 'Help us improve' })}
+          title={t('supportFeedback')}
+          description={t('supportDesc')}
           icon={MessageSquare}
         >
           <SettingItem
             icon={Heart}
-            label={t('aboutProject', { defaultValue: 'About This Project' })}
-            description={t('aboutDesc', { defaultValue: 'AI-powered crowding predictions for Istanbul public transport' })}
+            label={t('aboutProject')}
+            description={t('aboutDesc')}
           />
           <SettingItem
             icon={MessageSquare}
-            label={t('reportIssue', { defaultValue: 'Report an Issue' })}
-            description={t('reportDesc', { defaultValue: 'Bug reports, data errors, feature requests' })}
+            label={t('reportIssue')}
+            description={t('reportDesc')}
             action={
               <button
                 onClick={() => setShowReportForm(true)}
                 className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-white hover:bg-primary/90 transition-colors"
               >
-                {t('report', { defaultValue: 'Report' })}
+                {t('report')}
               </button>
             }
           />
           <SettingItem
             icon={Shield}
-            label={t('dataSource', { defaultValue: 'Data Source' })}
+            label={t('dataSource')}
             value="IBB Open Data"
           />
           <SettingItem
             icon={Info}
-            label={t('version', { defaultValue: 'Version' })}
+            label={t('version')}
             value="v1.0.0 (MVP)"
           />
         </SettingSection>
 
         <div className="mt-4 px-6 text-center pb-6">
           <p className="text-xs text-gray-500">
-            {t('footer', { defaultValue: 'Istanbul Transport Prediction Platform' })}<br/>
-            {t('footerTagline', { defaultValue: 'Designed for smoother commutes.' })}
+            {t('footer')}<br/>
+            {t('footerTagline')}
           </p>
         </div>
 
@@ -235,14 +235,14 @@ export default function SettingsPage() {
           <div className="bg-surface rounded-2xl border border-white/10 p-6 max-w-sm w-full">
             <h3 className="text-lg font-bold text-white mb-2">
               {showConfirm === 'favorites' 
-                ? t('confirmClearFavorites', { defaultValue: 'Clear All Favorites?' })
-                : t('confirmResetApp', { defaultValue: 'Reset Application?' })
+                ? t('confirmClearFavorites')
+                : t('confirmResetApp')
               }
             </h3>
             <p className="text-sm text-gray-400 mb-4">
               {showConfirm === 'favorites'
-                ? t('confirmClearFavoritesDesc', { defaultValue: 'This will remove all saved favorites. This action cannot be undone.' })
-                : t('confirmResetAppDesc', { defaultValue: 'This will clear all local data and reload the page. This action cannot be undone.' })
+                ? t('confirmClearFavoritesDesc')
+                : t('confirmResetAppDesc')
               }
             </p>
             <div className="flex gap-3">
@@ -250,13 +250,13 @@ export default function SettingsPage() {
                 onClick={() => setShowConfirm(null)}
                 className="flex-1 px-4 py-2 rounded-lg bg-background border border-white/10 text-gray-400 hover:bg-white/5 transition-colors"
               >
-                {t('cancel', { defaultValue: 'Cancel' })}
+                {t('cancel')}
               </button>
               <button
                 onClick={showConfirm === 'favorites' ? confirmClearFavorites : confirmResetApp}
                 className="flex-1 px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors"
               >
-                {t('confirm', { defaultValue: 'Confirm' })}
+                {t('confirm')}
               </button>
             </div>
           </div>

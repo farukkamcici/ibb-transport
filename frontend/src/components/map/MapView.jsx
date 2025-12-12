@@ -8,6 +8,7 @@ import MetroStationInfoCard from '@/components/map/MetroStationInfoCard';
 import { divIcon } from 'leaflet';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
 import useRoutePolyline from '@/hooks/useRoutePolyline';
 import useMetroTopology from '@/hooks/useMetroTopology';
 
@@ -39,6 +40,7 @@ function MapController({ routeCoordinates }) {
 }
 
 export default function MapView() {
+  const tCommon = useTranslations('common');
   const {
     userLocation,
     selectedLine,
@@ -240,9 +242,9 @@ export default function MapView() {
                     weight: 2
                   }}
                 >
-                  <Tooltip direction="top" offset={[0, -5]} opacity={0.9}>
+                      <Tooltip direction="top" offset={[0, -5]} opacity={0.9}>
                     <div className="text-xs font-medium">
-                      <div className="font-bold text-green-600">Start</div>
+                      <div className="font-bold text-green-600">{tCommon('start')}</div>
                       <div>{stop.name}</div>
                     </div>
                   </Tooltip>
@@ -265,7 +267,7 @@ export default function MapView() {
                 >
                   <Tooltip direction="top" offset={[0, -5]} opacity={0.9}>
                     <div className="text-xs font-medium">
-                      <div className="font-bold text-red-600">End</div>
+                      <div className="font-bold text-red-600">{tCommon('end')}</div>
                       <div>{stop.name}</div>
                     </div>
                   </Tooltip>

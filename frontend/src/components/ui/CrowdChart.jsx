@@ -1,7 +1,8 @@
 // frontend/src/components/ui/CrowdChart.jsx
 'use client';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, ReferenceArea } from 'recharts';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 
 const getCrowdColor = (occupancy_pct) => {
   if (occupancy_pct >= 70) return '#ef4444';
@@ -10,35 +11,49 @@ const getCrowdColor = (occupancy_pct) => {
   return '#10b981';
 };
 
-const CustomTooltip = ({ active, payload }) => {
-  if (!active || !payload || !payload.length) return null;
+export default function CrowdChart({ data }) {
+  const t = useTranslations('lineDetail');
+  const tErrors = useTranslations('errors');
+  const locale = useLocale();
+  const numberFormatter = useMemo(() => new Intl.NumberFormat(locale), [locale]);
 
-  const data = payload[0].payload;
-  
-  // Check if out of service
-  if (!data.in_service || data.occupancy_pct === null) {
+  const CustomTooltip = ({ active, payload }) => {
+    if (!active || !payload || !payload.length) return null;
+
+    const point = payload[0].payload;
+
+    // Out-of-service hours
+    if (!point.in_service || point.occupancy_pct === null) {
+      return (
+        <div className="rounded-lg border border-slate-600/50 bg-slate-800/95 p-3 shadow-xl backdrop-blur-sm">
+          <p className="text-xs font-semibold text-gray-400">
+            {t('chart.hourLabel', { hour: point.hour })}
+          </p>
+          <p className="text-sm font-bold text-slate-300 mt-1">{t('chart.outOfService')}</p>
+          <p className="text-xs text-gray-500 mt-1">{t('chart.noTripsScheduled')}</p>
+        </div>
+      );
+    }
+
+    const crowdLabel = point.crowd_level ? t(`crowdLevels.${point.crowd_level}`) : t('crowdLevels.Unknown');
+
     return (
-      <div className="rounded-lg border border-slate-600/50 bg-slate-800/95 p-3 shadow-xl backdrop-blur-sm">
-        <p className="text-xs font-semibold text-gray-400">Hour: {data.hour}:00</p>
-        <p className="text-sm font-bold text-slate-400 mt-1">Out of Service</p>
-        <p className="text-xs text-gray-500 mt-1">No trips scheduled</p>
+      <div className="rounded-lg border border-white/10 bg-surface/95 p-3 shadow-xl backdrop-blur-sm">
+        <p className="text-xs font-semibold text-gray-400">
+          {t('chart.hourLabel', { hour: point.hour })}
+        </p>
+        <p className="text-sm font-bold text-text mt-1">
+          {t('chart.occupancyLabel', { pct: point.occupancy_pct })}
+        </p>
+        <p className="text-xs text-secondary mt-1">
+          {t('chart.levelLabel', { level: crowdLabel })}
+        </p>
+        <p className="text-xs text-gray-400 mt-1">
+          {t('chart.passengersApprox', { count: numberFormatter.format(Math.round(point.predicted_value)) })}
+        </p>
       </div>
     );
-  }
-  
-  return (
-    <div className="rounded-lg border border-white/10 bg-surface/95 p-3 shadow-xl backdrop-blur-sm">
-      <p className="text-xs font-semibold text-gray-400">Hour: {data.hour}:00</p>
-      <p className="text-sm font-bold text-text mt-1">Occupancy: {data.occupancy_pct}%</p>
-      <p className="text-xs text-secondary mt-1">Level: {data.crowd_level}</p>
-      <p className="text-xs text-gray-400 mt-1">
-        ~{Math.round(data.predicted_value).toLocaleString()} passengers
-      </p>
-    </div>
-  );
-};
-
-export default function CrowdChart({ data }) {
+  };
   
   const formattedData = useMemo(() => {
     if (!data || !Array.isArray(data) || data.length === 0) {
@@ -89,7 +104,7 @@ export default function CrowdChart({ data }) {
   if (!formattedData.length) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-gray-400">
-        No forecast data available
+        {tErrors('noForecastData')}
       </div>
     );
   }

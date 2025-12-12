@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import useAppStore from '@/store/useAppStore';
 import { Loader, AlertTriangle, Droplets } from 'lucide-react';
 
@@ -9,7 +9,10 @@ const ISTANBUL_COORDS = [41.0082, 28.9784];
 
 
 const TemperatureBadge = () => {
-    const t = useTranslations();
+    const tCommon = useTranslations('common');
+    const tWeather = useTranslations('weather');
+    const locale = useLocale();
+    const numberFormatter = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 });
     const [weatherData, setWeatherData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -38,22 +41,22 @@ const TemperatureBadge = () => {
                 }
             );
 
-            if (!response.ok) throw new Error('Unable to fetch weather data');
+            if (!response.ok) throw new Error('WEATHER_FETCH_FAILED');
 
             const data = await response.json();
             if (data && Object.keys(data).length > 0) {
                 setWeatherData(data);
                 lastFetchRef.current = now;
             } else {
-                throw new Error('No weather data received');
+                throw new Error('WEATHER_EMPTY_RESPONSE');
             }
         } catch (err) {
-            setError(err.message);
-            setAlertMessage('Weather data unavailable');
+            setError(tWeather('unavailable'));
+            setAlertMessage(tWeather('unavailable'));
         } finally {
             setLoading(false);
         }
-    }, [setAlertMessage]);
+    }, [setAlertMessage, tWeather]);
 
     useEffect(() => {
         // Fetch weather on mount
@@ -192,7 +195,7 @@ const TemperatureBadge = () => {
                                     {currentTemp ? Math.round(currentTemp) : '--'}°
                                 </div>
                                 <div className="text-[10px] text-secondary/70 leading-tight font-medium">
-                                    {t('common.istanbul')}
+                                    {tCommon('istanbul')}
                                 </div>
                             </div>
                         </>
@@ -218,7 +221,7 @@ const TemperatureBadge = () => {
                             {/* Next Hours Forecast - Vertical List */}
                             {futureHours.length > 0 && (
                                 <div>
-                                    <div className="text-[10px] text-secondary/60 font-medium mb-1.5 transition-all duration-300">{t('weather.nextHours')}</div>
+                                    <div className="text-[10px] text-secondary/60 font-medium mb-1.5 transition-all duration-300">{tWeather('nextHours')}</div>
                                     <div className="space-y-1">
                                         {futureHours.map(({ key, actualHour, data }, index) => (
                                             <div 
@@ -242,7 +245,9 @@ const TemperatureBadge = () => {
                                                 <div className="flex items-center gap-1 min-w-[50px] justify-end bg-primary/5 rounded px-1.5 py-0.5">
                                                     <Droplets className="text-primary/70" size={12} />
                                                     <span className="text-xs font-medium text-text">
-                                                        {data.precipitation !== undefined ? `${data.precipitation.toFixed(1)}mm` : '0mm'}
+                                                        {data.precipitation !== undefined
+                                                          ? `${numberFormatter.format(data.precipitation)}mm`
+                                                          : `0mm`}
                                                     </span>
                                                 </div>
                                             </div>
@@ -253,7 +258,7 @@ const TemperatureBadge = () => {
 
                             {/* Hint */}
                             <div className="text-[9px] text-secondary/40 text-center pt-0.5">
-                                {t('weather.autoCloses')}
+                                {tWeather('autoCloses')}
                             </div>
                         </div>
                     )}

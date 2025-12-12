@@ -41,6 +41,15 @@
       "High": "Yüksek Yoğunluk",
       "Very High": "Çok Yüksek Yoğunluk",
       "Unknown": "Bilinmiyor"
+    },
+    "resetPosition": "Konumu sıfırla",
+    "chart": {
+      "hourLabel": "Saat: {hour}:00",
+      "outOfService": "Sefer yok",
+      "noTripsScheduled": "Sefer planlanmadı",
+      "occupancyLabel": "Doluluk: {pct}%",
+      "levelLabel": "Yoğunluk: {level}",
+      "passengersApprox": "≈{count} yolcu"
     }
   },
   "schedule": {
@@ -70,7 +79,8 @@
     "trainsArriving": "tren yaklaşıyor",
     "lastUpdated": "Son güncelleme",
     "noLiveGPS": "Not: Planlanan sefer saatlerine göre tahminidir",
-    "metroScheduleDisclaimer": "Metro İstanbul API verilerine dayalı planlı sefer saatleri (canlı GPS takibi değil)"
+    "metroScheduleDisclaimer": "Metro İstanbul API verilerine dayalı planlı sefer saatleri (canlı GPS takibi değil)",
+    "onPlatform": "Peronda"
   },
   "metroStation": {
     "order": "{order}. durak",
@@ -94,7 +104,8 @@
   },
   "weather": {
     "nextHours": "Sonraki Saatler",
-    "autoCloses": "Birkaç saniye içinde otomatik kapanır"
+    "autoCloses": "Birkaç saniye içinde otomatik kapanır",
+    "unavailable": "Hava durumu bilgisi alınamadı"
   },
   "timeSlider": {
     "timeTravel": "Zaman Seçici"
@@ -165,7 +176,18 @@
     "submit": "Gönder",
     "submitting": "Gönderiliyor...",
     "reportSuccess": "Rapor Gönderildi!",
-    "reportSuccessMessage": "Geri bildiriminiz için teşekkürler. En kısa sürede inceleyeceğiz."
+    "reportSuccessMessage": "Geri bildiriminiz için teşekkürler. En kısa sürede inceleyeceğiz.",
+    "reportTypes": {
+      "bug": "Hata",
+      "data": "Veri hatası",
+      "feature": "Özellik isteği"
+    },
+    "validation": {
+      "descriptionMin": "Açıklama en az {min} karakter olmalı"
+    },
+    "reportSubmitFailed": "Rapor gönderilemedi. Lütfen tekrar deneyin.",
+    "lineCodePlaceholder": "örn., M2, 15F, 500T",
+    "emailPlaceholder": "ornek@eposta.com"
   },
   "admin": {
     "title": "Yönetim Paneli",
@@ -175,14 +197,17 @@
     "networkError": "Ağ hatası. Lütfen bağlantınızı kontrol edin.",
     "notFound": "Hat bulunamadı",
     "serverError": "Sunucu hatası. Lütfen daha sonra tekrar deneyin.",
-    "noForecast": "{line} için tahmin bulunamadı"
+    "noForecast": "{line} için tahmin bulunamadı",
+    "noForecastData": "Tahmin verisi bulunamadı"
   },
   "common": {
     "close": "Kapat",
     "loading": "Yükleniyor",
     "error": "Hata",
     "retry": "Tekrar Dene",
-    "istanbul": "İstanbul"
+    "istanbul": "İstanbul",
+    "start": "Başlangıç",
+    "end": "Bitiş"
   },
   "status": {
     "nextService": "İlk sefer",

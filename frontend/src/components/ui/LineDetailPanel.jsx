@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { usePathname } from 'next/navigation';
+import { usePathname } from '@/i18n/routing';
 import { motion, AnimatePresence, useAnimation, useDragControls } from 'framer-motion';
 import useAppStore from '@/store/useAppStore';
 import useRoutePolyline from '@/hooks/useRoutePolyline';
@@ -40,6 +40,7 @@ const crowdLevelConfig = {
 
 export default function LineDetailPanel() {
   const t = useTranslations('lineDetail');
+  const tErrors = useTranslations('errors');
   const getTransportLabel = useGetTransportLabel();
   const isDesktop = useMediaQuery('(min-width: 768px)');
   const pathname = usePathname();
@@ -178,8 +179,19 @@ export default function LineDetailPanel() {
           setError(null);
         })
         .catch(err => {
-          const errorMessage = err.message || "Could not fetch forecast. Please try again later.";
-          setError(errorMessage);
+          const message = (() => {
+            const raw = err?.message || '';
+            const line = selectedLine?.id || '';
+
+            if (/network error/i.test(raw)) return tErrors('networkError');
+            if (/not found/i.test(raw)) return tErrors('notFound');
+            if (/no forecast/i.test(raw)) return tErrors('noForecast', { line });
+            if (/server error/i.test(raw)) return tErrors('serverError');
+
+            return tErrors('serverError');
+          })();
+
+          setError(message);
           setForecastData([]);
           console.error('Data fetch error:', err);
         })
@@ -434,7 +446,7 @@ export default function LineDetailPanel() {
                         vibrate(5);
                       }}
                       className="p-1.5 rounded-md hover:bg-white/10 transition-colors text-gray-400 hover:text-gray-200 cursor-pointer"
-                      title="Reset Position"
+                      title={t('resetPosition')}
                     >
                       <RotateCcw size={12} />
                     </button>

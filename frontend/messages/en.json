@@ -41,6 +41,15 @@
       "High": "High Density",
       "Very High": "Very High Density",
       "Unknown": "Unknown"
+    },
+    "resetPosition": "Reset position",
+    "chart": {
+      "hourLabel": "Hour: {hour}:00",
+      "outOfService": "Out of Service",
+      "noTripsScheduled": "No trips scheduled",
+      "occupancyLabel": "Occupancy: {pct}%",
+      "levelLabel": "Level: {level}",
+      "passengersApprox": "≈{count} passengers"
     }
   },
   "schedule": {
@@ -70,7 +79,8 @@
     "trainsArriving": "trains arriving soon",
     "lastUpdated": "Last updated",
     "noLiveGPS": "Note: Based on planned schedule",
-    "metroScheduleDisclaimer": "Planned schedule from Metro Istanbul API (not live GPS tracking)"
+    "metroScheduleDisclaimer": "Planned schedule from Metro Istanbul API (not live GPS tracking)",
+    "onPlatform": "At platform"
   },
   "metroStation": {
     "order": "Stop #{order}",
@@ -94,7 +104,8 @@
   },
   "weather": {
     "nextHours": "Next Hours",
-    "autoCloses": "Auto-closes in a few seconds"
+    "autoCloses": "Auto-closes in a few seconds",
+    "unavailable": "Weather unavailable"
   },
   "timeSlider": {
     "timeTravel": "Time Travel"
@@ -165,7 +176,18 @@
     "submit": "Submit",
     "submitting": "Submitting...",
     "reportSuccess": "Report Submitted!",
-    "reportSuccessMessage": "Thank you for your feedback. We will review it soon."
+    "reportSuccessMessage": "Thank you for your feedback. We will review it soon.",
+    "reportTypes": {
+      "bug": "Bug",
+      "data": "Data error",
+      "feature": "Feature request"
+    },
+    "validation": {
+      "descriptionMin": "Description must be at least {min} characters"
+    },
+    "reportSubmitFailed": "Failed to submit report. Please try again.",
+    "lineCodePlaceholder": "e.g., M2, 15F, 500T",
+    "emailPlaceholder": "your.email@example.com"
   },
   "admin": {
     "title": "Admin Panel",
@@ -175,14 +197,17 @@
     "networkError": "Network error. Please check your connection.",
     "notFound": "Line not found",
     "serverError": "Server error. Please try again later.",
-    "noForecast": "No forecast available for {line}"
+    "noForecast": "No forecast available for {line}",
+    "noForecastData": "No forecast data available"
   },
   "common": {
     "close": "Close",
     "loading": "Loading",
     "error": "Error",
     "retry": "Retry",
-    "istanbul": "Istanbul"
+    "istanbul": "Istanbul",
+    "start": "Start",
+    "end": "End"
   },
   "status": {
     "nextService": "Next service",

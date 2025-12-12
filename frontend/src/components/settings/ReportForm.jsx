@@ -6,9 +6,9 @@ import { Bug, TrendingDown, Lightbulb, Send, Loader, CheckCircle, X } from 'luci
 import { cn } from '@/lib/utils';
 
 const REPORT_TYPES = [
-  { value: 'bug', label: 'Bug Report', icon: Bug, color: 'text-red-400' },
-  { value: 'data', label: 'Data Error', icon: TrendingDown, color: 'text-orange-400' },
-  { value: 'feature', label: 'Feature Request', icon: Lightbulb, color: 'text-yellow-400' }
+  { value: 'bug', labelKey: 'reportTypes.bug', icon: Bug, color: 'text-red-400' },
+  { value: 'data', labelKey: 'reportTypes.data', icon: TrendingDown, color: 'text-orange-400' },
+  { value: 'feature', labelKey: 'reportTypes.feature', icon: Lightbulb, color: 'text-yellow-400' }
 ];
 
 export default function ReportForm({ onClose }) {
@@ -27,7 +27,7 @@ export default function ReportForm({ onClose }) {
     e.preventDefault();
     
     if (formData.description.length < 10) {
-      setError('Description must be at least 10 characters');
+      setError(t('validation.descriptionMin', { min: 10 }));
       return;
     }
 
@@ -52,7 +52,7 @@ export default function ReportForm({ onClose }) {
       
     } catch (err) {
       console.error('Error submitting report:', err);
-      setError(err.response?.data?.detail || 'Failed to submit report. Please try again.');
+      setError(err.response?.data?.detail || t('reportSubmitFailed'));
     } finally {
       setIsSubmitting(false);
     }
@@ -64,10 +64,10 @@ export default function ReportForm({ onClose }) {
         <div className="bg-surface rounded-2xl border border-white/10 p-6 max-w-md w-full text-center">
           <CheckCircle size={48} className="text-green-500 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-white mb-2">
-            {t('reportSuccess', { defaultValue: 'Report Submitted!' })}
+            {t('reportSuccess')}
           </h3>
           <p className="text-gray-400 text-sm">
-            {t('reportSuccessMessage', { defaultValue: 'Thank you for your feedback. We will review it soon.' })}
+            {t('reportSuccessMessage')}
           </p>
         </div>
       </div>
@@ -79,7 +79,7 @@ export default function ReportForm({ onClose }) {
       <div className="bg-surface rounded-2xl border border-white/10 p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-xl font-bold text-white">
-            {t('reportIssue', { defaultValue: 'Report an Issue' })}
+            {t('reportIssue')}
           </h3>
           <button
             onClick={onClose}
@@ -93,7 +93,7 @@ export default function ReportForm({ onClose }) {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              {t('reportType', { defaultValue: 'Report Type' })} *
+              {t('reportType')} *
             </label>
             <div className="grid grid-cols-3 gap-2">
               {REPORT_TYPES.map((type) => (
@@ -109,7 +109,7 @@ export default function ReportForm({ onClose }) {
                   )}
                 >
                   <type.icon size={20} className={formData.report_type === type.value ? type.color : ''} />
-                  <span className="text-xs font-medium">{type.label}</span>
+                  <span className="text-xs font-medium">{t(type.labelKey)}</span>
                 </button>
               ))}
             </div>
@@ -117,12 +117,12 @@ export default function ReportForm({ onClose }) {
 
           <div>
             <label htmlFor="line_code" className="block text-sm font-medium text-gray-300 mb-2">
-              {t('lineCode', { defaultValue: 'Line Code' })} ({t('optional', { defaultValue: 'optional' })})
+              {t('lineCode')} ({t('optional')})
             </label>
             <input
               id="line_code"
               type="text"
-              placeholder="e.g., M2, 15F, 500T"
+              placeholder={t('lineCodePlaceholder')}
               value={formData.line_code}
               onChange={(e) => setFormData({ ...formData, line_code: e.target.value })}
               className="w-full px-4 py-2.5 rounded-lg bg-background border border-white/10 text-white placeholder:text-gray-500 focus:outline-none focus:border-primary transition-colors"
@@ -132,12 +132,12 @@ export default function ReportForm({ onClose }) {
 
           <div>
             <label htmlFor="description" className="block text-sm font-medium text-gray-300 mb-2">
-              {t('description', { defaultValue: 'Description' })} *
+              {t('description')} *
             </label>
             <textarea
               id="description"
               rows={5}
-              placeholder={t('descriptionPlaceholder', { defaultValue: 'Describe the issue in detail (minimum 10 characters)...' })}
+              placeholder={t('descriptionPlaceholder')}
               value={formData.description}
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full px-4 py-2.5 rounded-lg bg-background border border-white/10 text-white placeholder:text-gray-500 focus:outline-none focus:border-primary transition-colors resize-none"
@@ -153,19 +153,19 @@ export default function ReportForm({ onClose }) {
 
           <div>
             <label htmlFor="contact_email" className="block text-sm font-medium text-gray-300 mb-2">
-              {t('email', { defaultValue: 'Email' })} ({t('optional', { defaultValue: 'optional' })})
+              {t('email')} ({t('optional')})
             </label>
             <input
               id="contact_email"
               type="email"
-              placeholder="your.email@example.com"
+              placeholder={t('emailPlaceholder')}
               value={formData.contact_email}
               onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
               className="w-full px-4 py-2.5 rounded-lg bg-background border border-white/10 text-white placeholder:text-gray-500 focus:outline-none focus:border-primary transition-colors"
               disabled={isSubmitting}
             />
             <p className="text-xs text-gray-500 mt-1">
-              {t('emailNote', { defaultValue: 'Optional. We may contact you for follow-up.' })}
+              {t('emailNote')}
             </p>
           </div>
 
@@ -182,7 +182,7 @@ export default function ReportForm({ onClose }) {
               disabled={isSubmitting}
               className="flex-1 px-4 py-2.5 rounded-lg bg-background border border-white/10 text-gray-400 hover:bg-white/5 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {t('cancel', { defaultValue: 'Cancel' })}
+              {t('cancel')}
             </button>
             <button
               type="submit"
@@ -192,12 +192,12 @@ export default function ReportForm({ onClose }) {
               {isSubmitting ? (
                 <>
                   <Loader size={16} className="animate-spin" />
-                  {t('submitting', { defaultValue: 'Submitting...' })}
+                  {t('submitting')}
                 </>
               ) : (
                 <>
                   <Send size={16} />
-                  {t('submit', { defaultValue: 'Submit' })}
+                  {t('submit')}
                 </>
               )}
             </button>

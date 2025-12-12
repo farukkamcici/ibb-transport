@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { Search } from 'lucide-react';
 import useAppStore from '@/store/useAppStore';
 import { searchLines } from '@/lib/api';
@@ -10,6 +10,7 @@ import { useGetTransportLabel } from '@/hooks/useGetTransportLabel';
 
 export default function SearchBar() {
   const t = useTranslations('searchBar');
+  const locale = useLocale();
   const getTransportLabel = useGetTransportLabel();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState([]);
@@ -46,9 +47,11 @@ export default function SearchBar() {
 
   const highlightMatch = (text, query) => {
     if (!query || !text) return text;
-    
-    const normalizedQuery = query.toLocaleLowerCase('tr-TR');
-    const normalizedText = text.toLocaleLowerCase('tr-TR');
+
+    // Locale-aware lowercasing matters for Turkish dotted İ/i.
+    const casingLocale = locale === 'tr' ? 'tr-TR' : 'en-US';
+    const normalizedQuery = query.toLocaleLowerCase(casingLocale);
+    const normalizedText = text.toLocaleLowerCase(casingLocale);
     
     const index = normalizedText.indexOf(normalizedQuery);
     if (index === -1) return text;

@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
 import { Link } from '@/i18n/routing';
-import { usePathname } from 'next/navigation';
+import { usePathname } from '@/i18n/routing';
 import { Map, Star, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import useAppStore from '@/store/useAppStore';
