@@ -564,8 +564,8 @@ function AdminDashboardContent() {
                             <span className="text-lg">{config.icon}</span>
                             <div className="flex flex-col">
                               <span className={`text-sm font-bold ${config.color}`}>{config.label}</span>
-                              {job.metadata?.num_days && job.metadata.num_days > 1 && (
-                                <span className="text-[10px] text-gray-500">({job.metadata.num_days} days)</span>
+                              {job.job_metadata?.num_days && job.job_metadata.num_days > 1 && (
+                                <span className="text-[10px] text-gray-500">({job.job_metadata.num_days} days)</span>
                               )}
                             </div>
                           </div>

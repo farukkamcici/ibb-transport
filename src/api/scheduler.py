@@ -142,7 +142,7 @@ def cleanup_old_forecasts(days_to_keep: int = 3):
             target_date=cutoff_date,
             status="RUNNING",
             start_time=datetime.now(),
-            metadata={"days_to_keep": days_to_keep, "cutoff_date": str(cutoff_date)}
+            job_metadata={"days_to_keep": days_to_keep, "cutoff_date": str(cutoff_date)}
         )
         db.add(job_log)
         db.commit()
@@ -221,7 +221,7 @@ def data_quality_check():
             target_date=date.today(),
             status="RUNNING",
             start_time=datetime.now(),
-            metadata={"check_type": "forecast_coverage_and_quality"}
+            job_metadata={"check_type": "forecast_coverage_and_quality"}
         )
         db.add(job_log)
         db.commit()
@@ -288,8 +288,8 @@ def data_quality_check():
             job_log.status = "SUCCESS" if not issues else "SUCCESS"
             job_log.end_time = datetime.now()
             job_log.records_processed = len(issues)
-            job_log.metadata["issues"] = issues[:10]  # Store first 10 issues
-            job_log.metadata["total_issues"] = len(issues)
+            job_log.job_metadata["issues"] = issues[:10]  # Store first 10 issues
+            job_log.job_metadata["total_issues"] = len(issues)
             db.commit()
             
             if issues:
@@ -340,7 +340,7 @@ def prefetch_metro_schedules(target_date: Optional[date] = None, force: bool = F
             target_date=target,
             status="RUNNING",
             start_time=datetime.now(),
-            metadata={"force": force, "valid_for": str(target)}
+            job_metadata={"force": force, "valid_for": str(target)}
         )
         db.add(job_log)
         db.commit()
@@ -356,7 +356,7 @@ def prefetch_metro_schedules(target_date: Optional[date] = None, force: bool = F
         job_log.status = "SUCCESS" if result.get('failed') == 0 else "SUCCESS"
         job_log.end_time = datetime.now()
         job_log.records_processed = result.get('cached', 0)
-        job_log.metadata.update({
+        job_log.job_metadata.update({
             "total_pairs": result.get('total_pairs', 0),
             "cached": result.get('cached', 0),
             "failed": result.get('failed', 0),

@@ -48,7 +48,7 @@ class JobExecution(Base):
     end_time = Column(DateTime(timezone=True), nullable=True)
     records_processed = Column(Integer, default=0)
     error_message = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    job_metadata = Column(JSON, nullable=True)
 
 class AdminUser(Base):
     """Admin users for accessing the admin panel."""

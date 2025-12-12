@@ -36,7 +36,7 @@ class JobLogResponse(BaseModel):
     end_time: datetime | None
     records_processed: int
     error_message: str | None
-    metadata: dict | None
+    job_metadata: dict | None
 
 
 class DashboardStats(BaseModel):

@@ -44,7 +44,7 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
             end_date=end_date if num_days > 1 else None,
             status="RUNNING",
             start_time=datetime.now(),
-            metadata={"num_days": num_days, "days": [str(target_date + timedelta(days=i)) for i in range(num_days)]}
+            job_metadata={"num_days": num_days, "days": [str(target_date + timedelta(days=i)) for i in range(num_days)]}
         )
         db.add(job_log)
         db.commit()
