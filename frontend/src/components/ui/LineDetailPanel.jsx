@@ -164,8 +164,8 @@ export default function LineDetailPanel() {
       
       const targetDate = new Date();
       
-      // Fetch forecast + status for all lines.
-      // (Metro/rail status uses topology hours server-side; bus uses IETT + schedule.)
+      // Fetch forecast + line status.
+      // For metro/rail, status is used only for the out-of-service banner.
       const promises = [
         getForecast(selectedLine.id, targetDate, selectedDirection),
         getLineStatus(selectedLine.id, selectedDirection)

@@ -164,6 +164,8 @@ def get_daily_forecast(
     """
     try:
         # Backwards-compatible aliasing: M1A/M1B share the same forecast rows as M1.
+        # IMPORTANT: service-hours should still be computed from the requested line_name
+        # (because M1A vs M1B topology hours/stops can differ).
         forecast_line_name = 'M1' if line_name in ('M1A', 'M1B') else line_name
 
         line_exists = db.query(TransportLine).filter(
@@ -200,7 +202,7 @@ def get_daily_forecast(
             logger.error(f"Incomplete forecast data for line '{line_name}' on {target_date}: {len(forecasts)}/24 hours")
         
         # Get service hours from schedule to mark out-of-service hours
-        service_hours = _get_service_hours(forecast_line_name, direction)
+        service_hours = _get_service_hours(line_name, direction)
         
         # Process forecasts to mark out-of-service hours
         processed_forecasts = []
