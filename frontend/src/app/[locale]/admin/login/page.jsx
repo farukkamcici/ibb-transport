@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function AdminLogin() {
   const [username, setUsername] = useState('');
@@ -98,8 +99,8 @@ export default function AdminLogin() {
             >
               {isLoading ? (
                 <>
-                  <span className="animate-spin h-5 w-5 border-2 border-white/20 border-t-white rounded-full"></span>
-                  Logging in...
+                  <Skeleton className="h-4 w-24 bg-white/20" />
+                  <span className="sr-only">Logging in...</span>
                 </>
               ) : (
                 <>

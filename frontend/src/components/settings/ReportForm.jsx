@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { apiClient } from '@/lib/api';
-import { Bug, TrendingDown, Lightbulb, Send, Loader, CheckCircle, X } from 'lucide-react';
+import { Bug, TrendingDown, Lightbulb, Send, CheckCircle, X } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 import { cn } from '@/lib/utils';
 
 const REPORT_TYPES = [
@@ -191,8 +192,8 @@ export default function ReportForm({ onClose }) {
             >
               {isSubmitting ? (
                 <>
-                  <Loader size={16} className="animate-spin" />
-                  {t('submitting')}
+                  <Skeleton className="h-4 w-24 bg-white/20" />
+                  <span className="sr-only">{t('submitting')}</span>
                 </>
               ) : (
                 <>

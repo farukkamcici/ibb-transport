@@ -12,6 +12,7 @@ import {
   TrainFront,
   Trash2
 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function SchedulerPanel({ schedulerStatus, onPauseResume, getAuthHeaders, onRefresh }) {
   const [triggeringJob, setTriggeringJob] = useState(null);
@@ -218,8 +219,8 @@ export default function SchedulerPanel({ schedulerStatus, onPauseResume, getAuth
                     >
                       {isTriggering ? (
                         <>
-                          <span className="animate-spin h-3 w-3 border-2 border-blue-400/20 border-t-blue-400 rounded-full"></span>
-                          Running...
+                          <Skeleton className="h-3 w-16 bg-blue-400/20" />
+                          <span className="sr-only">Running...</span>
                         </>
                       ) : (
                         <>

@@ -1,10 +1,11 @@
 'use client';
 
 import { useMemo } from 'react';
-import { X, TrainFront, Loader, AlertTriangle, ArrowLeftRight } from 'lucide-react';
+import { X, TrainFront, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import useMetroSchedule from '@/hooks/useMetroSchedule';
 import useAppStore from '@/store/useAppStore';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const formatMinutes = (value) => {
   if (value == null) return '—';
@@ -91,8 +92,17 @@ export default function MetroStationInfoCard({ station, lineName, directionId, o
     );
   } else if (loading) {
     content = (
-      <div className="flex items-center justify-center py-6">
-        <Loader className="animate-spin text-primary" size={18} />
+      <div className="py-3 space-y-2" aria-busy="true">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <div
+            key={`metro-train-skeleton-${index}`}
+            className="flex items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5"
+          >
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-4 w-12 rounded-full" />
+          </div>
+        ))}
+        <span className="sr-only">Loading</span>
       </div>
     );
   } else if (error) {

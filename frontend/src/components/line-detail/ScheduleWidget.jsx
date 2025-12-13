@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { Clock, Loader, Calendar, ChevronRight, TrainFront, Ship, Info } from 'lucide-react';
+import { Clock, Calendar, ChevronRight, TrainFront, Ship, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule, compact = false, limit = 3, transportType = null }) {
   const t = useTranslations('schedule');
@@ -74,10 +75,17 @@ export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule
       <div className={cn(
         "rounded-xl bg-slate-800/50 border border-white/5",
         compact ? "p-2" : "p-4"
-      )}>
-        <div className="flex items-center justify-center py-4">
-          <Loader className="animate-spin text-primary" size={16} />
+      )} aria-busy="true">
+        <Skeleton className="h-4 w-28" />
+        <div className="mt-3">
+          <SkeletonText lines={2} />
         </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Skeleton className="h-8 w-full rounded-lg" />
+          <Skeleton className="h-8 w-full rounded-lg" />
+          <Skeleton className="h-8 w-full rounded-lg" />
+        </div>
+        <span className="sr-only">Loading</span>
       </div>
     );
   }

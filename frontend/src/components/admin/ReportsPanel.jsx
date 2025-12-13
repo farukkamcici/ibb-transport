@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { ChevronDown, ChevronUp, Mail, RefreshCw, Trash2 } from 'lucide-react';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 const REPORT_TYPE_CONFIG = {
   bug: { label: 'Bug', color: 'bg-red-950/30 text-red-300 border-red-900/40' },
@@ -239,8 +240,24 @@ export default function ReportsPanel({ API_URL, getAuthHeaders }) {
 
   if (loading && !stats) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-gray-400">Loading reports...</div>
+      <div className="py-10" aria-busy="true">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={`reports-stat-skeleton-${index}`} className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+              <Skeleton className="h-3 w-24" />
+              <div className="mt-3">
+                <Skeleton className="h-7 w-16" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+          <Skeleton className="h-4 w-36" />
+          <div className="mt-3">
+            <SkeletonText lines={2} />
+          </div>
+        </div>
+        <span className="sr-only">Loading reports...</span>
       </div>
     );
   }

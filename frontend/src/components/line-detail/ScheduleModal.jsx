@@ -1,8 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { X, Clock, Loader, ArrowRight } from 'lucide-react';
+import { X, Clock, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirection = 'G', directionInfo = {} }) {
   const t = useTranslations('schedule');
@@ -143,8 +144,13 @@ export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirect
 
         <div className="p-6 overflow-y-auto max-h-[calc(80vh-140px)]">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader className="animate-spin text-primary" size={24} />
+            <div className="py-6" aria-busy="true">
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                {Array.from({ length: 24 }).map((_, index) => (
+                  <Skeleton key={`schedule-skeleton-${index}`} className="h-9 w-full rounded-lg" />
+                ))}
+              </div>
+              <span className="sr-only">Loading</span>
             </div>
           ) : directionSchedule.length === 0 ? (
             <div className="text-center py-12">

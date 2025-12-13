@@ -8,7 +8,6 @@ import useRoutePolyline from '@/hooks/useRoutePolyline';
 import useMediaQuery from '@/hooks/useMediaQuery';
 import { 
   X, 
-  Loader, 
   ServerCrash, 
   Users, 
   Star,
@@ -31,6 +30,7 @@ import { getTransportType } from '@/lib/transportTypes';
 import { useGetTransportLabel } from '@/hooks/useGetTransportLabel';
 import useMetroTopology from '@/hooks/useMetroTopology';
 import { ChevronDown } from 'lucide-react';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 const crowdLevelConfig = {
   "Low": { color: "text-emerald-400", progressColor: "bg-emerald-500", badge: "bg-emerald-500/20 border-emerald-500/30" },
@@ -681,8 +681,17 @@ export default function LineDetailPanel() {
                       isDesktop ? "md:col-span-3" : ""
                     )}>
                       {loading && (
-                        <div className="flex items-center justify-center py-8">
-                          <Loader className="animate-spin text-primary" size={20} />
+                        <div className="p-3 space-y-3" aria-busy="true">
+                          <div className="flex items-center justify-between">
+                            <Skeleton className="h-3 w-28" />
+                            <Skeleton className="h-5 w-14 rounded-md" />
+                          </div>
+                          <Skeleton className="h-7 w-24 rounded-md" />
+                          <SkeletonText lines={2} />
+                          <div className="pt-2">
+                            <Skeleton className="h-2 w-full rounded" />
+                          </div>
+                          <span className="sr-only">Loading line details</span>
                         </div>
                       )}
                       
@@ -899,8 +908,20 @@ export default function LineDetailPanel() {
                       </div>
                       <div className="px-3 pb-3 pt-2 h-44 relative">
                         {loading ? (
-                          <div className="h-full flex items-center justify-center">
-                            <Loader className="animate-spin text-primary" size={20} />
+                          <div className="h-full flex flex-col justify-center gap-3" aria-busy="true">
+                            <Skeleton className="h-3 w-28" />
+                            <div className="grid grid-cols-6 gap-2 items-end">
+                              {Array.from({ length: 6 }).map((_, index) => (
+                                <Skeleton
+                                  key={`chart-skeleton-${index}`}
+                                  className={cn(
+                                    'w-full rounded',
+                                    index % 3 === 0 ? 'h-10' : index % 3 === 1 ? 'h-14' : 'h-8'
+                                  )}
+                                />
+                              ))}
+                            </div>
+                            <span className="sr-only">Loading 24 hour forecast</span>
                           </div>
                         ) : (
                           <CrowdChart data={forecastData} />

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useMap } from 'react-leaflet';
 import useAppStore from '@/store/useAppStore';
-import { Navigation, LoaderCircle } from 'lucide-react';
+import { Navigation } from 'lucide-react';
 
 const LocateButton = () => {
   const map = useMap();
@@ -53,7 +53,7 @@ const LocateButton = () => {
           title="Konumumu bul"
         >
           {loading ? (
-            <LoaderCircle className="animate-spin h-6 w-6 text-surface" />
+            <Navigation className="h-6 w-6 text-surface/70 animate-pulse" />
           ) : (
             <Navigation className="h-6 w-6 text-surface" />
           )}

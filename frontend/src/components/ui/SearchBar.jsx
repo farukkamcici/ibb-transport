@@ -7,6 +7,7 @@ import { searchLines } from '@/lib/api';
 import { useDebounce } from '@/hooks/useDebounce';
 import { getTransportType } from '@/lib/transportTypes';
 import { useGetTransportLabel } from '@/hooks/useGetTransportLabel';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function SearchBar() {
   const t = useTranslations('searchBar');
@@ -85,7 +86,23 @@ export default function SearchBar() {
       
       {(results.length > 0 || loading) && (
         <div className="absolute top-full mt-2 w-full max-h-[400px] overflow-y-auto overflow-hidden rounded-xl border border-white/10 bg-surface shadow-xl z-50">
-          {loading && <div className="p-4 text-center text-sm text-gray-400">{t('loading')}</div>}
+          {loading && (
+            <div className="p-4 space-y-3" aria-busy="true" aria-live="polite">
+              {Array.from({ length: 3 }).map((_, index) => (
+                <div
+                  key={`search-skeleton-${index}`}
+                  className="rounded-lg border border-white/5 bg-background/40 p-3"
+                >
+                  <div className="flex items-center gap-2 mb-2">
+                    <Skeleton className="h-5 w-16" />
+                    <Skeleton className="h-4 w-20" />
+                  </div>
+                  <Skeleton className="h-3 w-5/6" />
+                </div>
+              ))}
+              <span className="sr-only">{t('loading')}</span>
+            </div>
+          )}
           {!loading && results.map((result) => {
             const transportType = getTransportType(result.transport_type_id);
             

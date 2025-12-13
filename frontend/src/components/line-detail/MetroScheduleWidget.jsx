@@ -8,9 +8,10 @@
 'use client';
 import { useState, useEffect, useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { Clock, Loader, ChevronRight } from 'lucide-react';
+import { Clock, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getCachedSchedule, setCachedSchedule } from '@/lib/metroScheduleCache';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 export default function MetroScheduleWidget({ 
   lineCode,
@@ -117,10 +118,17 @@ export default function MetroScheduleWidget({
       <div className={cn(
         "rounded-xl bg-slate-800/50 border border-white/5",
         compact ? "p-2" : "p-4"
-      )}>
-        <div className="flex items-center justify-center py-4">
-          <Loader className="animate-spin text-primary" size={16} />
+      )} aria-busy="true">
+        <Skeleton className="h-4 w-28" />
+        <div className="mt-3">
+          <SkeletonText lines={2} />
         </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <Skeleton className="h-8 w-full rounded-lg" />
+          <Skeleton className="h-8 w-full rounded-lg" />
+          <Skeleton className="h-8 w-full rounded-lg" />
+        </div>
+        <span className="sr-only">Loading</span>
       </div>
     );
   }

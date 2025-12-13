@@ -4,6 +4,7 @@ import { useState } from 'react';
 import axios from 'axios';
 import { formatDistanceToNow, format } from 'date-fns';
 import { AlertTriangle, Database, RefreshCw, Target, TrainFront, Trash2 } from 'lucide-react';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 export default function MetroCachePanel({ status, getAuthHeaders, onRefresh }) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -15,7 +16,18 @@ export default function MetroCachePanel({ status, getAuthHeaders, onRefresh }) {
   if (!status) {
     return (
       <div className="rounded-xl border border-white/10 bg-slate-900/40 p-6">
-        <p className="text-sm text-gray-400">Loading metro cache status...</p>
+        <div aria-busy="true">
+          <Skeleton className="h-5 w-48" />
+          <div className="mt-3">
+            <SkeletonText lines={2} />
+          </div>
+          <div className="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-20 w-full rounded-xl" />
+            <Skeleton className="h-20 w-full rounded-xl" />
+          </div>
+          <span className="sr-only">Loading metro cache status...</span>
+        </div>
       </div>
     );
   }

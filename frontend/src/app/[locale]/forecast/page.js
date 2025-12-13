@@ -5,11 +5,12 @@ import { useRouter } from '@/i18n/routing';
 import BottomNav from '@/components/ui/BottomNav';
 import LineDetailPanel from '@/components/ui/LineDetailPanel';
 import useAppStore from '@/store/useAppStore';
-import { Star, TrendingUp, MapPin, Loader, AlertTriangle } from 'lucide-react';
+import { Star, TrendingUp, MapPin, AlertTriangle } from 'lucide-react';
 import { getLineMetadata, getForecast, getLineStatus } from '@/lib/api';
 import { getTransportType } from '@/lib/transportTypes';
 import { useGetTransportLabel } from '@/hooks/useGetTransportLabel';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 const crowdLevelConfig = {
   "Low": { color: "text-emerald-400", bgColor: "bg-emerald-500/20", badge: "bg-emerald-500" },
@@ -70,8 +71,22 @@ function FavoriteLineCard({ lineId }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center rounded-xl bg-surface p-6 border border-white/5 min-h-[100px]">
-        <Loader className="animate-spin text-primary" size={24} />
+      <div
+        className="rounded-xl bg-surface p-4 border border-white/5 min-h-[100px]"
+        aria-busy="true"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Skeleton className="h-7 w-20 rounded-lg" />
+            <Skeleton className="h-5 w-16 rounded" />
+          </div>
+          <Skeleton className="h-5 w-20 rounded-lg" />
+        </div>
+        <div className="mt-3 space-y-2">
+          <Skeleton className="h-4 w-5/6" />
+          <Skeleton className="h-3 w-2/3" />
+        </div>
+        <span className="sr-only">{t('loading')}</span>
       </div>
     );
   }

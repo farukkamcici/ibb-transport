@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import useAppStore from '@/store/useAppStore';
-import { Loader, AlertTriangle, Droplets } from 'lucide-react';
+import { AlertTriangle, Droplets } from 'lucide-react';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 // Istanbul coordinates (center of the city)
 const ISTANBUL_COORDS = [41.0082, 28.9784];
@@ -184,7 +185,11 @@ const TemperatureBadge = () => {
                 {/* Compact View - Fixed Height */}
                 <div className="flex items-center gap-2 px-3 h-12 transition-all duration-300">
                     {loading ? (
-                        <Loader className="text-primary animate-spin" size={16} />
+                        <div className="flex flex-col justify-center space-y-1 px-1">
+                            <Skeleton className="h-4 w-10 bg-white/20" />
+                            <Skeleton className="h-3 w-12 bg-white/10" />
+                            <span className="sr-only">Loading weather</span>
+                        </div>
                     ) : error ? (
                         <AlertTriangle className="text-orange-400" size={16} />
                     ) : (
@@ -216,6 +221,25 @@ const TemperatureBadge = () => {
                     onMouseEnter={handleMouseEnter}
                     onMouseLeave={handleMouseLeave}
                 >
+                    {loading && !weatherData && (
+                        <div className="px-3 py-2.5 space-y-2" aria-busy="true">
+                            <div className="text-[10px] text-secondary/60 font-medium mb-1.5">
+                                {tWeather('nextHours')}
+                            </div>
+                            <div className="space-y-1">
+                                {Array.from({ length: 4 }).map((_, index) => (
+                                    <div
+                                        key={`weather-skeleton-${index}`}
+                                        className="flex items-center justify-between bg-primary/5 rounded-lg px-2.5 py-1.5"
+                                    >
+                                        <Skeleton className="h-4 w-12 bg-white/10" />
+                                        <Skeleton className="h-4 w-10 bg-white/10" />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
                     {weatherData && currentWeather && (
                         <div className="px-3 py-2.5 space-y-2">
                             {/* Next Hours Forecast - Vertical List */}

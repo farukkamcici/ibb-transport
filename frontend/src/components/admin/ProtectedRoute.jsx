@@ -2,6 +2,7 @@
 import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { Skeleton, SkeletonText } from '@/components/ui/Skeleton';
 
 export default function ProtectedRoute({ children }) {
   const { isAuthenticated, loading } = useAuth();
@@ -18,9 +19,12 @@ export default function ProtectedRoute({ children }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin h-12 w-12 border-4 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
-          <p className="text-gray-400">Loading...</p>
+        <div className="w-full max-w-sm rounded-2xl border border-gray-800 bg-gray-900 p-6" aria-busy="true">
+          <Skeleton className="h-6 w-40 bg-white/10" />
+          <div className="mt-4">
+            <SkeletonText lines={3} lineClassName="bg-white/10" />
+          </div>
+          <span className="sr-only">Loading...</span>
         </div>
       </div>
     );

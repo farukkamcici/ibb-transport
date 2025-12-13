@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { X, Clock, Loader, TrainFront } from 'lucide-react';
+import { X, Clock, TrainFront } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import useMetroTopology from '@/hooks/useMetroTopology';
 import { getCachedSchedule, setCachedSchedule } from '@/lib/metroScheduleCache';
+import { Skeleton } from '@/components/ui/Skeleton';
 
 export default function MetroScheduleModal({ 
   lineCode, 
@@ -197,8 +198,13 @@ export default function MetroScheduleModal({
         {/* Schedule Grid */}
         <div className="p-6 overflow-y-auto max-h-[calc(80vh-200px)]">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader className="animate-spin text-purple-400" size={24} />
+            <div className="py-6" aria-busy="true">
+              <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                {Array.from({ length: 24 }).map((_, index) => (
+                  <Skeleton key={`metro-schedule-skeleton-${index}`} className="h-9 w-full rounded-lg" />
+                ))}
+              </div>
+              <span className="sr-only">Loading</span>
             </div>
           ) : error ? (
             <div className="text-center py-12">
