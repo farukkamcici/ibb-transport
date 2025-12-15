@@ -46,6 +46,15 @@ def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optio
         Tuple of (first_hour, last_hour, wraps_midnight) or None if unknown
     """
     try:
+        # Special case: Marmaray - hardcoded service hours (06:00 - 00:00)
+        if line_code == 'MARMARAY':
+            return {
+                "first_hour": 6,
+                "last_hour": 0,
+                "wraps_midnight": True,
+                "has_service": True
+            }
+        
         # Metro / rail: use topology first/last time when available.
         if isinstance(line_code, str) and line_code and line_code[0] in ('M', 'F', 'T'):
             metro_line = metro_service.get_line(line_code)

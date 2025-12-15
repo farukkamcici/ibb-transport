@@ -249,6 +249,24 @@ class IETTStatusService:
             Dictionary with in_operation (bool) and next_service_time (str or None)
         """
         try:
+            # Special case: Marmaray - hardcoded service hours (06:00 - 00:00)
+            if line_code == 'MARMARAY':
+                now = datetime.now(self.tz).time()
+                first_service = time(6, 0)
+                last_service = time(0, 0)
+                
+                # Wraps midnight: service from 06:00 to 00:00 (next day)
+                in_service = now >= first_service or now <= last_service
+                
+                if in_service:
+                    return {"in_operation": True, "next_service_time": None, "reason": None}
+                else:
+                    return {
+                        "in_operation": False,
+                        "next_service_time": "06:00",
+                        "reason": "OUTSIDE_SERVICE_HOURS"
+                    }
+            
             # Metro / rail: derive operation hours from topology instead of bus schedule.
             if isinstance(line_code, str) and line_code and line_code[0] in ('M', 'F', 'T'):
                 line = metro_service.get_line(line_code)
