@@ -134,6 +134,32 @@ export default function ScheduleWidget({ lineCode, direction, onShowFullSchedule
     );
   }
 
+  // Marmaray: Show empty state without schedule requirement
+  const isMarmaray = lineCode === 'MARMARAY';
+  
+  if (isMarmaray) {
+    return (
+      <div className={cn(
+        "rounded-xl bg-slate-800/50 border border-white/5",
+        compact ? "p-2.5 h-full flex flex-col" : "p-4"
+      )}>
+        <div className="flex items-center gap-2 mb-2">
+          <TrainFront size={14} className="text-purple-400" />
+          <h3 className="text-xs font-medium text-gray-300">{t('plannedTrips')}</h3>
+        </div>
+        <div className="flex-1 flex flex-col justify-center space-y-2">
+          <div className="flex items-start gap-2 px-2 py-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+            <Info size={12} className="text-purple-400 mt-0.5 shrink-0" />
+            <div>
+              <p className="text-xs font-semibold text-purple-300">Tarife bilgisi mevcut değil</p>
+              <p className="text-[10px] text-gray-400 mt-1">Marmaray için sefer bilgisi henüz entegre edilmedi.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // Metro: Show frequency info card
   if (transportType && transportType.id === 2) {
     return (

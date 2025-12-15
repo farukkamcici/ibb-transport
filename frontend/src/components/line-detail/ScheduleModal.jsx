@@ -10,6 +10,13 @@ export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirect
   const [schedule, setSchedule] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState(initialDirection);
+  
+  // Marmaray bypass: don't show modal
+  const isMarmaray = lineCode === 'MARMARAY';
+  if (isMarmaray && isOpen) {
+    onClose();
+    return null;
+  }
 
   useEffect(() => {
     if (!isOpen || !lineCode) return;
@@ -20,7 +27,23 @@ export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirect
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/lines/${lineCode}/schedule`);
         if (!response.ok) throw new Error('Failed to fetch schedule');
         const data = await response.json();
-        setSchedule(data);
+
+        // Backend may include non-direction keys (e.g. `hat_Service_Today`, `data_status`).
+        // Keep only direction arrays + optional meta so the modal doesn't render those keys as tabs.
+        const cleaned = {};
+        if (data && typeof data === 'object') {
+          if (data.meta && typeof data.meta === 'object') {
+            cleaned.meta = data.meta;
+          }
+          for (const [key, value] of Object.entries(data)) {
+            if (key === 'meta') continue;
+            if (Array.isArray(value)) {
+              cleaned[key] = value;
+            }
+          }
+        }
+
+        setSchedule(cleaned);
       } catch (err) {
         console.error('Schedule fetch error:', err);
       } finally {
@@ -54,7 +77,7 @@ export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirect
 
   if (!isOpen) return null;
 
-  const directionSchedule = schedule?.[activeTab] || [];
+  const directionSchedule = Array.isArray(schedule?.[activeTab]) ? schedule[activeTab] : [];
   const nextIndex = getNextTimeIndex(directionSchedule);
 
   return (
@@ -80,7 +103,7 @@ export default function ScheduleModal({ lineCode, isOpen, onClose, initialDirect
 
         <div className="px-6 py-3 border-b border-white/10 bg-slate-800/50">
           <div className="flex gap-2">
-            {Object.keys(schedule || {}).filter(key => key !== 'meta').map((dir) => {
+            {Object.keys(schedule || {}).filter((key) => key !== 'meta').map((dir) => {
               // Priority: API meta > directionInfo from route data > fallback
               const apiMeta = schedule?.meta?.[dir];
               const routeInfo = directionInfo[dir];

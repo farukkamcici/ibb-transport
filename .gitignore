@@ -262,5 +262,7 @@ mlruns/
 **/.DS_Store
 to-do.md
 !frontend/public/data/
-
+AGENTS.md
+CLAUDE.md
+to-do.md
 /METRO_INTEGRATION.md
