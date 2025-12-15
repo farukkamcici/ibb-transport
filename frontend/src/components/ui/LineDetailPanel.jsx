@@ -71,6 +71,8 @@ export default function LineDetailPanel() {
     setMetroSelection,
     resetMetroSelection
   } = useAppStore();
+
+  const selectedLineId = selectedLine?.id ?? null;
   
   const { getAvailableDirections, getPolyline, getDirectionInfo } = useRoutePolyline();
   const [forecastData, setForecastData] = useState([]);
@@ -81,7 +83,7 @@ export default function LineDetailPanel() {
   const [scheduleSummary, setScheduleSummary] = useState(null);
   
   // Detect if selected line is metro
-  const isMetroLine = selectedLine && /^[MFT]/.test(selectedLine.id);
+  const isMetroLine = !!selectedLineId && /^[MFT]/.test(selectedLineId);
   
   const [hasRouteData, setHasRouteData] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
@@ -93,7 +95,7 @@ export default function LineDetailPanel() {
   // Metro-specific state
   const { getLine } = useMetroTopology();
 
-  const metroLine = isMetroLine ? getLine(selectedLine?.id) : null;
+  const metroLine = isMetroLine ? getLine(selectedLineId) : null;
   const metroStations = useMemo(() => {
     if (!metroLine?.stations) return [];
     return [...metroLine.stations].sort((a, b) => a.order - b.order);
@@ -111,7 +113,9 @@ export default function LineDetailPanel() {
     return metroStations.find((s) => s.id === selectedMetroStationId) || null;
   }, [metroStations, selectedMetroStationId]);
 
-  const metroDirections = currentMetroStation?.directions || [];
+  const metroDirections = useMemo(() => {
+    return currentMetroStation?.directions ?? [];
+  }, [currentMetroStation]);
 
   const selectedMetroDirectionId = useMemo(() => {
     if (!currentMetroStation) {
@@ -211,7 +215,7 @@ export default function LineDetailPanel() {
         setLineStatus(null);
       });
     }
-  }, [isPanelOpen, selectedLine, selectedDirection, isMetroLine]);
+  }, [isPanelOpen, selectedLine, selectedDirection, isMetroLine, tErrors]);
 
   useEffect(() => {
     if (!isDesktop && showCapacityTooltip) {
@@ -286,36 +290,16 @@ export default function LineDetailPanel() {
     }
   }, [isPanelOpen, isDesktop, panelSize.height]);
 
-  if (!isPanelOpen || !selectedLine) return null;
+  const hasAnyInServiceHour = useMemo(
+    () => forecastData.some((item) => item.in_service),
+    [forecastData]
+  );
 
-  const currentHourData = forecastData.find(f => f.hour === selectedHour);
-  const isOutOfServiceHour =
-    !!currentHourData &&
-    (
-      currentHourData.in_service === false ||
-      currentHourData.crowd_level === 'Out of Service' ||
-      currentHourData.occupancy_pct == null
-    );
+  const directionInfo = useMemo(() => {
+    if (!selectedLineId) return {};
+    return getDirectionInfo(selectedLineId);
+  }, [getDirectionInfo, selectedLineId]);
 
-  const crowdLevel = isOutOfServiceHour
-    ? 'Out of Service'
-    : (currentHourData?.crowd_level || 'Unknown');
-
-  const status = isOutOfServiceHour
-    ? null
-    : (crowdLevelConfig[crowdLevel] || crowdLevelConfig.Unknown);
-  const hasAnyInServiceHour = useMemo(() => forecastData.some(item => item.in_service), [forecastData]);
-  const shouldShowForecastChart = loading || forecastData.length > 0;
-  const metadata = selectedLine.metadata;
-  const transportType = metadata ? getTransportType(metadata.transport_type_id) : null;
-  const m1aLine = isMetroLine ? getLine('M1A') : null;
-  const m1bLine = isMetroLine ? getLine('M1B') : null;
-  const displayLineLabel = (isMetroLine && selectedLine.id === 'M1')
-    ? [m1aLine?.description, m1bLine?.description].filter(Boolean).join(' / ')
-    : metadata?.line;
-  const isFav = isFavorite(selectedLine.id);
-  const availableDirections = getAvailableDirections(selectedLine.id);
-  const directionInfo = getDirectionInfo(selectedLine.id);
   const serviceContextLabel = useMemo(() => {
     if (!scheduleSummary) return null;
 
@@ -330,7 +314,7 @@ export default function LineDetailPanel() {
       return stationLabel || directionLabel || null;
     }
 
-    const info = directionInfo[selectedDirection];
+    const info = directionInfo?.[selectedDirection];
     if (info?.firstStop && info?.lastStop) {
       return t('serviceWindowBusContext', { from: info.firstStop, to: info.lastStop });
     }
@@ -353,16 +337,16 @@ export default function LineDetailPanel() {
   ]);
 
   useEffect(() => {
-    if (!selectedLine) {
+    queueMicrotask(() => {
       setScheduleSummary(null);
-      return;
-    }
-    setScheduleSummary(null);
-  }, [selectedLine?.id, selectedDirection, isMetroLine, selectedMetroStationId, selectedMetroDirectionId]);
+    });
+  }, [selectedLineId, selectedDirection, isMetroLine, selectedMetroStationId, selectedMetroDirectionId]);
 
   useEffect(() => {
     if (!isPanelOpen) {
-      setScheduleSummary(null);
+      queueMicrotask(() => {
+        setScheduleSummary(null);
+      });
     }
   }, [isPanelOpen]);
 
@@ -371,7 +355,7 @@ export default function LineDetailPanel() {
       setScheduleSummary(null);
       return;
     }
-    if (!selectedLine || summary.lineCode !== selectedLine.id) {
+    if (!selectedLineId || summary.lineCode !== selectedLineId) {
       return;
     }
     if (summary.status === 'unsupported' || summary.status === 'idle') {
@@ -382,14 +366,14 @@ export default function LineDetailPanel() {
       return;
     }
     setScheduleSummary({ ...summary, type: 'BUS' });
-  }, [selectedLine?.id, selectedDirection]);
+  }, [selectedLineId, selectedDirection]);
 
   const handleMetroScheduleSummary = useCallback((summary) => {
     if (!summary) {
       setScheduleSummary(null);
       return;
     }
-    if (!selectedLine || (summary.lineCode && summary.lineCode !== selectedLine.id)) {
+    if (!selectedLineId || (summary.lineCode && summary.lineCode !== selectedLineId)) {
       return;
     }
     if (!isMetroLine) {
@@ -406,7 +390,7 @@ export default function LineDetailPanel() {
       return;
     }
     setScheduleSummary({ ...summary, type: 'METRO' });
-  }, [selectedLine?.id, isMetroLine, selectedMetroStationId, selectedMetroDirectionId]);
+  }, [selectedLineId, isMetroLine, selectedMetroStationId, selectedMetroDirectionId]);
 
   const vibrate = (pattern) => {
     if (typeof navigator !== 'undefined' && navigator.vibrate) {
@@ -473,6 +457,38 @@ export default function LineDetailPanel() {
     document.body.style.userSelect = 'none';
     document.body.style.cursor = 'nwse-resize';
   };
+
+  if (!isPanelOpen || !selectedLine) return null;
+
+  const currentHourData = forecastData.find((f) => f.hour === selectedHour);
+  const isOutOfServiceHour =
+    !!currentHourData &&
+    (
+      currentHourData.in_service === false ||
+      currentHourData.crowd_level === 'Out of Service' ||
+      currentHourData.occupancy_pct == null
+    );
+
+  const crowdLevel = isOutOfServiceHour
+    ? 'Out of Service'
+    : (currentHourData?.crowd_level || 'Unknown');
+
+  const status = isOutOfServiceHour
+    ? null
+    : (crowdLevelConfig[crowdLevel] || crowdLevelConfig.Unknown);
+
+  const shouldShowForecastChart = loading || forecastData.length > 0;
+  const metadata = selectedLine.metadata ?? null;
+  const transportType = metadata ? getTransportType(metadata.transport_type_id) : null;
+
+  const m1aLine = isMetroLine ? getLine('M1A') : null;
+  const m1bLine = isMetroLine ? getLine('M1B') : null;
+  const displayLineLabel = (isMetroLine && selectedLineId === 'M1')
+    ? [m1aLine?.description, m1bLine?.description].filter(Boolean).join(' / ')
+    : metadata?.line;
+
+  const isFav = isFavorite(selectedLineId);
+  const availableDirections = getAvailableDirections(selectedLineId);
 
   return (
     <>
