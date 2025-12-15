@@ -1,6 +1,115 @@
 # Project Logbook
 
-_Last updated: 2025-12-12_
+_Last updated: 2025-12-15_
+
+## Entry · 2025-12-15 23:40 (+03)
+
+### Commit
+- **Hash:** `dafecd0de466b7d18babc7806e453b4de2cd3e36`
+- **Message:** `fix marmaray service hours with hardcode`
+
+### Summary
+- Implemented hardcoded service hours (06:00-00:00 with midnight wrap) for MARMARAY line to fix "Out of Service" prediction issues caused by missing schedule data.
+
+### Details
+- Added special-case handling in `forecast.py::_get_service_hours()` to return hardcoded service window for MARMARAY with `wraps_midnight: True`.
+- Updated `status_service.py` with MARMARAY-specific operation check using same service hours and wrap-midnight logic.
+- Frontend already had Marmaray-specific bypasses to show empty schedule state and force 24h chart display.
+
+### Notes
+- Eliminates "No schedule payload for MARMARAY; assuming active" warnings in logs.
+- Hours 0 (midnight) now correctly marked as in-service; hours 1-5 marked as out-of-service.
+
+## Entry · 2025-12-15 23:34 (+03)
+
+### Commit
+- **Hash:** `397852c65f25432c5bae793273f8e7b777ee451d`
+- **Message:** `refactor SearchBar.jsx section`
+
+### Summary
+- Major UI/UX refactor: extracted SearchBar and weather from individual pages into a reusable MapTopBar component, added panel state management, and redesigned Settings/Forecast pages.
+
+### Details
+- Created `MapTopBar.jsx` combining SearchBar + Nowcast for consistent header across Map and Forecast pages.
+- Added `PageHeader.jsx` component for Settings page with locale-aware layout.
+- Introduced `isPanelMinimized` state in Zustand store separate from `isPanelOpen` for better panel collapse control.
+- Redesigned Settings page with improved section organization and spacing.
+- Updated Forecast page layout to use MapTopBar with favorited lines grid.
+
+### Notes
+- This refactor improves code reusability and provides consistent navigation/search experience across pages.
+
+## Entry · 2025-12-15 18:16 (+03)
+
+### Commit
+- **Hash:** `e644927f4ef763bdb9ee470579596e5dbe602523`
+- **Message:** `handle marmaray errors`
+
+### Summary
+- Implemented Marmaray-specific bypasses in frontend to handle missing schedule data gracefully.
+
+### Details
+- `ScheduleWidget.jsx`: Added Marmaray check before metro/ferry checks to show custom empty state ("Tarife bilgisi mevcut değil").
+- `ScheduleModal.jsx`: Added early return to prevent modal from opening for Marmaray.
+- `LineDetailPanel.jsx`: Added `isMarmaray` flag to force 24h chart display even without schedule data, bypassing `hasAnyInServiceHour` check.
+
+### Notes
+- Frontend changes prepare for backend hardcoded service hours implementation.
+
+## Entry · 2025-12-13 02:37 (+03)
+
+### Commit
+- **Hash:** `703289af1a29e3d38dad9de333e1f8ed81b9352b`
+- **Message:** `redesign admin panel ui`
+
+### Summary
+- Complete admin panel UI redesign with improved layout, navigation, and visual hierarchy.
+
+### Details
+- Redesigned all admin panel components with consistent card-based layout and color scheme.
+- Enhanced `SchedulerPanel`, `ForecastCoverage`, `MetroCachePanel`, `ReportsPanel`, and `UserManagement` with better spacing and typography.
+- Removed deprecated `page-old.jsx` and unused admin endpoints.
+- Simplified scheduler interface by removing redundant controls.
+
+### Notes
+- Improves admin dashboard usability and visual consistency.
+
+## Entry · 2025-12-13 01:51 (+03)
+
+### Commit
+- **Hash:** `970c140e32cb18d6292410f89d4b7d5c78948b68`
+- **Message:** `admin ui rev for multiple days scheduled ops`
+
+### Summary
+- Enhanced batch forecast scheduler to support multiple-day scheduling and improved job tracking.
+
+### Details
+- Modified `scheduler.py` to accept `days_ahead` parameter (default: 1) allowing batch forecast for T+1, T+2, etc.
+- Added database migration for new `JobExecution` columns to track multi-day operations.
+- Updated admin UI to display multi-day forecast scheduling controls.
+- Enhanced job execution tracking with better error logging and status management.
+
+### Notes
+- Enables proactive forecast generation for multiple days ahead, improving data availability.
+
+## Entry · 2025-12-13 01:20 (+03)
+
+### Commit
+- **Hash:** `ee146a063389192e860e4025be47e8db1ca7fb83`
+- **Message:** `feat: add multiple days batch forecast, empty-state for crowd chart out of service hours`
+
+### Summary
+- Implemented multi-day batch forecast capability and improved out-of-service hour UX with empty state cards.
+
+### Details
+- Backend: Extended `batch_forecast.py` to generate forecasts for configurable number of days ahead.
+- Backend: Added admin endpoint `POST /admin/forecast/batch-multi-day` accepting `days_ahead` parameter.
+- Frontend: Enhanced `LineDetailPanel` with out-of-service empty state cards showing clock icon and helpful tips.
+- Frontend: Added translation keys for out-of-service messages in both Turkish and English.
+- Frontend: Improved chart rendering logic to handle mix of in-service and out-of-service hours.
+
+### Notes
+- Out-of-service empty states improve user understanding when predictions unavailable for specific hours.
 
 ## Entry · 2025-12-12 18:28 (+03)
 

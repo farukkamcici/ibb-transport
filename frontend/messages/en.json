@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "Istanbul Transport - Crowding Prediction",
-    "description": "AI-powered crowding predictions for Istanbul's public transportation system"
+    "title": "DoluMu - İstanbul Transit Crowd Forecast",
+    "description": "AI-powered crowd and occupancy predictions for all Istanbul public transport (Metro, Bus, Ferry). Check before you ride."
   },
   "navigation": {
     "map": "Map",

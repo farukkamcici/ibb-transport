@@ -258,11 +258,19 @@ params:
 
 The platform implements a comprehensive automated forecast generation system using **AsyncIOScheduler** for FastAPI compatibility:
 
-**Job 1: Daily Forecast Generation** (02:00 Europe/Istanbul)
-- Generates T+1 day forecasts for all transport lines (500+ lines × 24 hours)
+**Recent Enhancements (2025-12-13)**:
+- Multi-day batch forecast support for proactive data availability
+- Enhanced job execution tracking with target date columns
+- Admin UI controls for scheduling forecasts beyond T+1
+- Database migration support for new JobExecution schema
+
+**Job 1: Multi-Day Forecast Generation** (02:00 Europe/Istanbul)
+- Generates forecasts for configurable number of days ahead (default T+1, supports multi-day scheduling)
+- Supports batch generation for T+1, T+2, etc. via `days_ahead` parameter in admin API
+- Generates predictions for all transport lines (500+ lines × 24 hours × N days)
 - Implements 3-attempt retry logic with exponential backoff (1min → 2min → 4min)
 - Batch prediction optimization reduces execution time from O(n) to O(1) per line
-- Tracks `target_date` in `job_executions` table for monitoring
+- Tracks `target_date` in `job_executions` table for monitoring each day's generation
 
 **Job 2: Forecast Cleanup** (03:00)
 - Maintains rolling 3-day window (T-1, T, T+1) by deleting forecasts older than 3 days
@@ -285,6 +293,7 @@ The platform implements a comprehensive automated forecast generation system usi
 - `GET /admin/scheduler/status` - View scheduler state and all job information
 - `POST /admin/scheduler/pause` / `POST /admin/scheduler/resume` - Maintenance control
 - `POST /admin/scheduler/trigger/{job_type}` - Manual job execution (forecast/cleanup/quality-check)
+- `POST /admin/forecast/batch-multi-day` - Generate forecasts for multiple days ahead with configurable `days_ahead` parameter
 - `DELETE /admin/forecasts/date/{date}` - Delete all forecasts for specific date
 - `GET /admin/forecasts/coverage` - 7-day forecast availability summary with status indicators
 - `DELETE /admin/database/cleanup-all` - Bulk deletion of forecasts and job history with confirmation workflow
@@ -383,6 +392,7 @@ The platform implements a comprehensive automated forecast generation system usi
 
 **Rail Service Windows (Out-of-Service Hours)**:
 - For metro/rail lines, forecast service windows are derived from `metro_topology.json` line metadata (`first_time`/`last_time`) and handle wrap-midnight cases so the 24h chart can render gaps during inactive hours.
+- **Special Case - MARMARAY**: Hardcoded service hours (06:00-00:00 with midnight wrap) implemented in both `forecast.py::_get_service_hours()` and `status_service.py` to handle missing schedule data. Frontend bypasses schedule widget requirements and forces 24h chart display with custom empty state message ("Tarife bilgisi mevcut değil"). This prevents "Out of Service" errors across all 24 hours for this cross-continental rail line.
 
 ---
 

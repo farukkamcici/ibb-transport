@@ -1,7 +1,7 @@
 {
   "metadata": {
-    "title": "İstanbul Toplu Taşıma - Yoğunluk Tahmini",
-    "description": "Yapay zeka destekli İstanbul toplu taşıma sistemi yoğunluk tahminleri"
+    "title": "DoluMu - İstanbul Toplu Taşıma Doluluk Tahmini",
+    "description": "İstanbul'daki tüm toplu taşıma araçları için yapay zeka destekli anlık doluluk ve kalabalık tahmini. Yola çıkmadan yoğunluğu görün."
   },
   "navigation": {
     "map": "Harita",

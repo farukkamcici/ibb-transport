@@ -1,6 +1,6 @@
 {
-  "name": "Dolumu: İstanbul Toplu Taşıma Kullanım Tahmini Uygulaması",
-  "short_name": "Dolumu",
+  "name": "DoluMu: İstanbul Toplu Taşıma Doluluk Tahmini",
+  "short_name": "DoluMu",
   "theme_color": "#0f172a",
   "background_color": "#0f172a",
   "display": "standalone",

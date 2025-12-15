@@ -1,7 +1,8 @@
 # Project Summary
 
-This document captures delivery progress against the İstanbul Transit Crowding Platform product plan. Update it after each milestone that advances the PRD or technical design scope; focus on domain work (da
-ta pipelines, feature engineering, modeling, UI) and cite the related scripts or datasets rather than repository housekeeping changes.
+This document captures delivery progress against the İstanbul Transit Crowding Platform product plan. Update it after each milestone that advances the PRD or technical design scope; focus on domain work (data pipelines, feature engineering, modeling, UI) and cite the related scripts or datasets rather than repository housekeeping changes.
+
+_Last updated: 2025-12-15_
 
 ## API & Deployment
 - 2025-11-25: Developed the core backend API using FastAPI, with routers for `admin`, `forecast`, and `lines`.
@@ -140,3 +141,15 @@ panel with data visualization, and a bottom navigation system. The frontend is p
 ## Metro Integration
 - 2025-12-09: Added complete Metro Istanbul ingestion and APIs, including topology fetchers for lines/stations/directions, a dedicated FastAPI router/service, and React utilities (`useMetroTopology`, `useMetroSchedule`, `MetroLayer`) so Metro lines render on the map with stops, accessibility metadata, live departures, and direction selectors. Follow-up schema commits reorganized metro-specific Pydantic models under `src/api/schemas.py`.
 - 2025-12-11: Completed the metro UX with M1→M1A fallback logic, forecasting hooks, a full-day `MetroScheduleModal`, and a stale-while-revalidate localStorage cache that delivers instant timetable reads even when the upstream API stalls. Metro alerts were intentionally removed during this pass to keep the MVP focused on reliable schedule + forecast signals.
+
+## Special Line Handling (MARMARAY)
+- 2025-12-15: Implemented hardcoded service hours (06:00-00:00 with midnight wrap) for MARMARAY line to resolve missing schedule data issues. Added special-case handling in both forecast and status APIs to prevent "Out of Service" errors across all 24 hours. Frontend bypasses schedule widget requirements and forces 24h chart display for MARMARAY with custom empty state messages.
+
+## Multi-Day Batch Forecasting
+- 2025-12-13: Extended batch forecast scheduler to support configurable multi-day ahead predictions (`days_ahead` parameter). Enhanced job execution tracking with target date columns and better error handling. Added admin UI controls for scheduling forecasts beyond T+1. Implemented database migration for new JobExecution columns supporting multi-day operations.
+
+## UI/UX Component Refactoring
+- 2025-12-15: Major frontend refactor extracting SearchBar and Nowcast into reusable `MapTopBar` component for consistent header across Map and Forecast pages. Added `PageHeader` component for Settings page. Introduced separate `isPanelMinimized` state in Zustand store for better panel collapse control. Enhanced out-of-service hour UX with empty state cards showing clock icons and helpful user tips in LineDetailPanel.
+
+## Admin Dashboard Enhancement
+- 2025-12-13: Complete admin panel redesign with card-based layout, improved visual hierarchy, and consistent spacing. Enhanced all admin components (`SchedulerPanel`, `ForecastCoverage`, `MetroCachePanel`, `ReportsPanel`, `UserManagement`) with better typography and color scheme. Removed deprecated code and simplified scheduler controls.

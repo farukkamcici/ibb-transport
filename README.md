@@ -1,6 +1,6 @@
-# Istanbul Public Transit Crowding Prediction Platform
+# DoluMu - Istanbul Public Transit Crowding Prediction Platform
 
-**A data-driven forecasting tool for planning comfortable public transport trips in Istanbul**
+**AI-powered crowd and occupancy predictions for all Istanbul public transport. Check before you ride.**
 
 🌐 **Available in Turkish and English** | Türkçe ve İngilizce dillerinde kullanılabilir
 
@@ -8,7 +8,7 @@
 
 ## What is this Platform?
 
-The Istanbul Public Transit Crowding Prediction Platform is a **multilingual, web-based prediction tool** that helps you avoid peak hours and plan more comfortable journeys on Istanbul's public transportation network. 
+**DoluMu** is a **multilingual, web-based AI prediction tool** that helps you avoid peak hours and plan more comfortable journeys on Istanbul's public transportation network covering Metro, Bus, Metrobus, and Ferry lines.
 
 **Important:** This platform uses **AI models trained on historical passenger data and weather forecasts** to predict crowding levels. It does **not** rely on real-time sensors or live passenger counting. All information shown represents **forecasted predictions** based on patterns learned from past data, weather conditions, and calendar factors.
 
