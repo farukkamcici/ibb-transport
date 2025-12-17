@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { X, TrainFront, AlertTriangle, ArrowLeftRight } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import useMetroSchedule from '@/hooks/useMetroSchedule';
@@ -139,8 +140,12 @@ export default function MetroStationInfoCard({ station, lineName, directionId, o
     );
   }
 
-  return (
-    <div className="pointer-events-none absolute inset-0 z-[950] flex items-start justify-center px-4 pt-20 md:items-end md:justify-end md:px-10 md:pb-24 md:pt-0">
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
+    <div className="pointer-events-none fixed inset-0 z-[1400] flex items-start justify-center px-4 pt-24 md:items-end md:justify-end md:px-10 md:pb-24 md:pt-0">
       <div className="pointer-events-auto w-full max-w-xs overflow-hidden rounded-2xl border border-white/10 bg-slate-900/95 shadow-2xl backdrop-blur-xl md:max-w-sm">
         {/* Compact header bar */}
         <div className="flex items-start justify-between gap-3 border-b border-white/10 bg-slate-900/80 px-3 py-2.5">
@@ -192,6 +197,7 @@ export default function MetroStationInfoCard({ station, lineName, directionId, o
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

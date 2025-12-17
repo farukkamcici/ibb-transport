@@ -2,7 +2,7 @@
 
 This document captures delivery progress against the İstanbul Transit Crowding Platform product plan. Update it after each milestone that advances the PRD or technical design scope; focus on domain work (data pipelines, feature engineering, modeling, UI) and cite the related scripts or datasets rather than repository housekeeping changes.
 
-_Last updated: 2025-12-15_
+_Last updated: 2025-12-17_
 
 ## API & Deployment
 - 2025-11-25: Developed the core backend API using FastAPI, with routers for `admin`, `forecast`, and `lines`.
@@ -153,3 +153,6 @@ panel with data visualization, and a bottom navigation system. The frontend is p
 
 ## Admin Dashboard Enhancement
 - 2025-12-13: Complete admin panel redesign with card-based layout, improved visual hierarchy, and consistent spacing. Enhanced all admin components (`SchedulerPanel`, `ForecastCoverage`, `MetroCachePanel`, `ReportsPanel`, `UserManagement`) with better typography and color scheme. Removed deprecated code and simplified scheduler controls.
+
+## Real-Time Traffic Integration
+- 2025-12-17: Added Istanbul-wide traffic congestion indicator integrating İBB Traffic Management Center (UYM) public API. Implemented backend proxy endpoint (`/api/traffic/istanbul`) with 5-minute in-memory caching to reduce upstream load and respect rate limits. Created `TrafficBadge` component with glassmorphism design matching existing WeatherBadge aesthetic (navy tint, backdrop blur, layered shadows). Badge displays real-time traffic index as percentage (0%=empty, 100%=fully congested) with click-triggered Radix UI tooltip explaining data source and scale interpretation. Positioned badge in MapTopBar alongside WeatherBadge with 12px gap and Framer Motion layout animations. Full i18n support for Turkish and English with traffic explanation strings. Backend handles graceful degradation returning `{percent: null}` on API failures. Frontend auto-refreshes every 5 minutes with client-side throttling to prevent excessive requests. Component uses custom traffic light SVG icon for visual recognition and implements event propagation stops to prevent interaction conflicts with expandable WeatherBadge.

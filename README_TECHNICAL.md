@@ -58,7 +58,7 @@ The codebase follows a **modular data science architecture** with clear separati
    - `scheduler.py`: APScheduler integration with 3 automated cron jobs (forecast/cleanup/quality-check)
    - `services/store.py`: **Feature Store** with multi-year seasonal lag fallback strategy
    - `services/batch_forecast.py`: Batch prediction service with retry logic and fallback statistics
-   - `routers/`: RESTful endpoints for forecasting, nowcasting, admin operations, and line search
+   - `routers/`: RESTful endpoints for forecasting, nowcasting, admin operations, line search, and traffic proxy
 
 ---
 
@@ -73,6 +73,7 @@ The codebase follows a **modular data science architecture** with clear separati
 | **Turkish Holiday Calendar** | Manual CSV | `is_holiday`, `holiday_win_m1/p1`, `is_school_term` | Annual |
 | **IETT SOAP API** | XML (DurakDetay_GYY) | 45,000+ bus stop geometries with lat/lng coordinates | On-demand |
 | **IETT Route API** | XML (getGuzergah_json) | 500+ bus line routes with ordered stop sequences | On-demand |
+| **İBB Traffic API** | JSON (TrafficIndex_Sc1_Cont) | `TI` (traffic index), `TI_Av` (average index) | Real-time (5-min cache) |
 
 ### Feature Engineering Justification
 

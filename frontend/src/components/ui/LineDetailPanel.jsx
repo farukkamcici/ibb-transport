@@ -73,6 +73,16 @@ export default function LineDetailPanel() {
     resetMetroSelection
   } = useAppStore();
 
+  const handleBackdropClick = useCallback(() => {
+    // On the map page, clicking outside should only minimize (keep selected line).
+    if (!isFavoritesPage) {
+      setPanelMinimized(true);
+      return;
+    }
+
+    closePanel();
+  }, [isFavoritesPage, setPanelMinimized, closePanel]);
+
   const selectedLineId = selectedLine?.id ?? null;
   
   const { getAvailableDirections, getPolyline, getDirectionInfo } = useRoutePolyline();
@@ -409,7 +419,7 @@ export default function LineDetailPanel() {
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
             className="fixed inset-0 z-[898] bg-[#0f172a]/50 backdrop-blur-sm"
-            onClick={closePanel}
+            onClick={handleBackdropClick}
           />
         )}
       </AnimatePresence>

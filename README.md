@@ -23,6 +23,13 @@
 ### 🌦️ **Weather-Aware Predictions**
 - Our AI considers weather conditions (rain, temperature, wind) that affect ridership patterns
 - Get more accurate predictions during adverse weather conditions when people change their travel habits
+- Real-time weather badge showing Istanbul temperature with expandable 6-hour forecast
+
+### 🚦 **Live Traffic Conditions**
+- Istanbul-wide traffic congestion index displayed in real-time (sourced from İBB Traffic Management Center)
+- Visual percentage indicator (0% = empty roads, 100% = fully congested)
+- Click badge for detailed explanation of traffic data source and interpretation
+- Auto-updates every 5 minutes to reflect current traffic conditions
 
 ### 🗺️ **Interactive Route Visualization**
 - View complete bus line routes on an interactive map with all stops

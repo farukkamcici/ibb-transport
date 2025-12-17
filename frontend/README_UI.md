@@ -62,7 +62,8 @@
 **Başlangıç ekranında sizi karşılayan:**
 - **Üst Çubuk**: 
   - Akıllı arama çubuğu (hat kodu veya açıklamaya göre arama)
-  - Hava durumu bilgisi widget'ı
+  - **Trafik Yoğunluğu Widget'ı**: İstanbul geneli trafik yoğunluğu endeksi (%0-100)
+  - **Hava Durumu Widget'ı**: Anlık sıcaklık ve 6 saatlik tahmin
   - Dil değiştirici
 - **Harita Görünümü**: 
   - İstanbul haritası üzerinde tüm toplu taşıma hatları

@@ -1,6 +1,92 @@
 # Project Logbook
 
-_Last updated: 2025-12-15_
+_Last updated: 2025-12-17_
+
+## Entry · 2025-12-17 14:30 (+03)
+
+### Commit
+- **Hash:** `36f2ca2e5e0e25b0a2e7bd47b013b5fdc6c25a2e`
+- **Message:** `update traffic badge`
+
+### Summary
+- Refined TrafficBadge UI/UX with click-to-show tooltip, better icon, and improved event handling to prevent conflicts with WeatherBadge expansion.
+
+### Details
+- Replaced generic `Car` icon with custom traffic light SVG (`/public/icons/traffic-light-solid.svg`) for better visual recognition.
+- Switched from hover-triggered tooltip to click-controlled tooltip using Radix UI with manual state management.
+- Added `onPointerDownOutside` handler to close tooltip when clicking outside, improving mobile UX.
+- Implemented event propagation stops (`stopPropagation()`) to prevent TrafficBadge clicks from triggering parent handlers or interfering with WeatherBadge.
+- Installed `@radix-ui/react-tooltip` package for robust tooltip implementation.
+- Tooltip displays traffic congestion explanation, data source (İBB UYM), and percentage interpretation in localized text.
+
+### Notes
+- Click-based tooltip prevents accidental opens on hover while maintaining mobile-friendly interaction.
+- Event isolation ensures WeatherBadge and TrafficBadge can be clicked independently without cross-interference.
+
+## Entry · 2025-12-17 13:45 (+03)
+
+### Commit
+- **Hash:** `916b4ecd9f18310877feffd2e51b67fd10b5f9d7`
+- **Message:** `add traffic badge`
+
+### Summary
+- Implemented Istanbul-wide real-time traffic congestion indicator with backend proxy API and frontend badge component.
+
+### Details
+- **Backend (`src/api/routers/traffic.py`)**: Created `/api/traffic/istanbul` endpoint proxying İBB Traffic Management Center (UYM) public API (`https://tkmservices.ibb.gov.tr/web/api/TrafficData/v1/TrafficIndex_Sc1_Cont`).
+- **Caching Strategy**: Implemented 5-minute in-memory cache (TTL=300s) to reduce upstream API load and respect unknown rate limits.
+- **Data Extraction**: Parses `TI` (primary traffic index) with `TI_Av` fallback, returns normalized JSON: `{percent: int, source: "IMM_UYM", updatedAt: ISO8601}`.
+- **Error Handling**: Graceful degradation returning `{percent: null}` on upstream failures without throwing 500 errors.
+- **Frontend (`frontend/src/components/ui/TrafficBadge.jsx`)**: Compact glassmorphism pill component matching WeatherBadge design language.
+- **Visual Consistency**: Navy tint (`bg-[#1a2332]`), backdrop blur, white/8% border, layered shadow matching existing UI theme.
+- **Auto-Refresh**: Fetches on mount and every 5 minutes, with client-side 5-minute throttle to prevent excessive requests.
+- **Tooltip Integration**: Click-triggered Radix UI tooltip displaying traffic index explanation, data source, and percentage scale (0%=empty, 100%=fully congested).
+- **Internationalization**: Full i18n support with `traffic.title`, `traffic.description`, `traffic.source` keys in `messages/tr.json` and `messages/en.json`.
+- **Layout Integration**: Positioned in `MapTopBar.jsx` to the left of WeatherBadge with 12px gap, using Framer Motion layout animations for smooth transitions.
+
+### Notes
+- Traffic data sourced from publicly observable İBB municipal feed used by city dashboards.
+- Backend proxy reduces client-side CORS issues and provides consistent caching layer.
+- Component deliberately non-expandable (unlike WeatherBadge) to maintain simplicity—only tooltip on click.
+
+## Entry · 2025-12-17 10:20 (+03)
+
+### Commit
+- **Hash:** `7ebaa5cafdbecde3101fa296c84fda31862563cb`
+- **Message:** `rev map tab components design`
+
+### Summary
+- Refined map controls and badge components for better mobile UX and visual consistency.
+
+### Details
+- Extracted `MapControls.jsx` from inline map components into dedicated file for reusability and maintainability.
+- Enhanced MapControls with 167 lines of refined zoom/locate button logic, dynamic positioning based on panel state, and improved accessibility (aria-labels, focus states).
+- Improved WeatherBadge collapse UX by refactoring from `motion.div` layout animations to separate button trigger + AnimatePresence panel dropdown.
+- Added outside-click and Escape key handlers to WeatherBadge for better desktop/mobile interaction patterns.
+- Adjusted MapTopBar to use `layout="position"` for Framer Motion to prevent layout shift issues during badge expansions.
+- Updated BottomNav with refined spacing and icon sizing for better tap target accessibility on mobile.
+
+### Notes
+- Component extraction improves code organization and makes map controls reusable across different map views.
+
+## Entry · 2025-12-17 09:45 (+03)
+
+### Commit
+- **Hash:** `b80b811003742b52314120b3fde3ffbe1534a6e1`
+- **Message:** `update map tab components design`
+
+### Summary
+- Updated SearchBar, LineDetailPanel, and Forecast page with improved spacing, typography, and interaction patterns.
+
+### Details
+- SearchBar: Refined input padding, border radius, and focus states for better mobile keyboard interaction.
+- LineDetailPanel: Improved header layout with better icon alignment and spacing between elements.
+- Forecast page: Enhanced favorited lines grid with consistent card heights and better empty state messaging.
+- Updated Tailwind config with new spacing scale values (`14`, `18`, `22`) for more granular control.
+- Refined color palette with new secondary color shades for better visual hierarchy.
+
+### Notes
+- These refinements improve overall visual consistency and tactile feedback across the application.
 
 ## Entry · 2025-12-15 23:40 (+03)
 
