@@ -171,7 +171,7 @@ const TemperatureBadge = () => {
             layout
             transition={spring}
             className={
-                `relative shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f172a] shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.04)] origin-top hover:shadow-[0_4px_20px_rgba(0,0,0,0.4)] transition-all duration-200 ${
+                `relative shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a2332] shadow-[0_6px_20px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)] origin-top hover:shadow-[0_8px_24px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-200 ${
                     isExpanded ? 'z-[1200]' : 'z-[1001]'
                 }`
             }

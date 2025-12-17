@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMap } from 'react-leaflet';
 import { DomEvent } from 'leaflet';
 import { Minus, Navigation, Plus } from 'lucide-react';
@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils';
 export default function MapControls() {
   const map = useMap();
   const containerRef = useRef(null);
-  const { setUserLocation, setAlertMessage, isPanelOpen } = useAppStore();
+  const { setUserLocation, setAlertMessage, isPanelOpen, isPanelMinimized } = useAppStore();
   const [isLocating, setIsLocating] = useState(false);
   const [zoom, setZoom] = useState(() => map.getZoom());
 
@@ -33,10 +33,10 @@ export default function MapControls() {
   const canZoomOut = zoom > map.getMinZoom();
 
   const singleButtonBaseClassName =
-    'flex items-center justify-center w-11 h-11 rounded-full border border-white/10 bg-surface/90 text-text shadow-lg backdrop-blur transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70';
+    'flex items-center justify-center w-11 h-11 rounded-full border border-white/10 bg-[#1a2332]/90 text-text backdrop-blur transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70';
 
   const zoomGroupClassName =
-    'flex w-11 flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface/90 text-text shadow-lg backdrop-blur';
+    'flex w-11 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#1a2332]/90 text-text shadow-[0_6px_20px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)] backdrop-blur transition-all duration-200 hover:shadow-[0_8px_24px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)]';
 
   const zoomButtonClassName =
     'flex h-11 w-11 items-center justify-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/70';
@@ -90,15 +90,31 @@ export default function MapControls() {
     );
   };
 
+  const bottomOffset = useMemo(() => {
+    if (!isPanelOpen) {
+      return 'calc(env(safe-area-inset-bottom) + 5rem)';
+    }
+
+    if (isPanelMinimized) {
+      return 'calc(env(safe-area-inset-bottom) + 14rem)';
+    }
+
+    return 'calc(env(safe-area-inset-bottom) + 12rem)';
+  }, [isPanelMinimized, isPanelOpen]);
+
   return (
     <div
       className="leaflet-bottom leaflet-right transition-all duration-300"
-      style={{ zIndex: 1000, bottom: isPanelOpen ? '12rem' : '5rem' }}
+      style={{ zIndex: 1000, bottom: bottomOffset }}
       ref={containerRef}
     >
       <div className="leaflet-control">
         <div className="flex flex-col items-center gap-2">
-          <div className={zoomGroupClassName} role="group" aria-label="Harita yakınlaştırma">
+          <div
+            className={cn(zoomGroupClassName, 'hidden md:flex')}
+            role="group"
+            aria-label="Harita yakınlaştırma"
+          >
             <button
               type="button"
               onClick={handleZoomIn}
@@ -135,11 +151,11 @@ export default function MapControls() {
             onClick={handleLocate}
             title="Konumumu bul"
             aria-label="Konumumu bul"
-            className={cn(singleButtonBaseClassName, enabledClassName)}
+            className={cn(singleButtonBaseClassName, enabledClassName, 'h-12 w-12')}
           >
             <Navigation
               className={cn(
-                'h-5 w-5',
+                'h-6 w-6',
                 isLocating ? 'text-primary animate-pulse' : 'text-text'
               )}
             />

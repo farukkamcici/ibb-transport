@@ -69,7 +69,7 @@ export default function BottomNav() {
       
       {/* Floating nav container */}
       <div className="relative mx-auto max-w-md px-4 pb-2 pointer-events-auto">
-        <nav className="flex items-center h-[68px] rounded-[24px] border border-white/[0.08] bg-[#0f172a] shadow-[0_-4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.03)]">
+        <nav className="flex items-center h-[68px] rounded-[24px] border border-white/[0.08] bg-[#0f172a] shadow-[0_6px_20px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)] transition-shadow duration-200">
           <NavItem href="/" icon={Map} label={t('map')} />
           <div className="h-8 w-px bg-white/[0.06]" />
           <NavItem href="/forecast" icon={Star} label={t('favorites')} />

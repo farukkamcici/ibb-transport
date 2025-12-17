@@ -72,7 +72,7 @@ export default function SearchBar() {
 
   return (
     <div className="relative w-full h-14">
-      <div className="flex items-center gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f172a] px-5 h-14 shadow-[0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.04)] focus-within:ring-2 focus-within:ring-primary/40 transition-all duration-200">
+      <div className="flex items-center gap-3 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a2332] px-5 h-14 shadow-[0_6px_20px_rgba(0,0,0,0.4),0_2px_8px_rgba(0,0,0,0.2),inset_0_1px_0_rgba(255,255,255,0.06)] focus-within:ring-2 focus-within:ring-primary/40 focus-within:shadow-[0_8px_24px_rgba(0,0,0,0.5),0_4px_12px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.08)] transition-all duration-200">
          <Search className="h-5 w-5 text-secondary shrink-0" />
          <input 
            type="text"
@@ -98,7 +98,7 @@ export default function SearchBar() {
       </div>
       
       {(results.length > 0 || loading) && (
-        <div className="absolute top-full mt-3 w-full max-h-[400px] overflow-y-auto overflow-hidden rounded-2xl border border-white/[0.08] bg-[#0f172a] shadow-[0_8px_24px_rgba(0,0,0,0.4),inset_0_1px_0_rgba(255,255,255,0.04)] z-50 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-background/50">
+        <div className="absolute top-full mt-3 w-full max-h-[400px] overflow-y-auto overflow-hidden rounded-2xl border border-white/[0.08] bg-[#1a2332] shadow-[0_12px_32px_rgba(0,0,0,0.5),0_4px_16px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.06)] z-50 scrollbar-thin scrollbar-thumb-primary/30 scrollbar-track-background/50">
           {loading && (
             <div className="p-4 space-y-3" aria-busy="true" aria-live="polite">
               {Array.from({ length: 3 }).map((_, index) => (
