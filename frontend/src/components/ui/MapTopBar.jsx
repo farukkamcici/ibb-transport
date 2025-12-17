@@ -4,6 +4,7 @@ import { LayoutGroup, motion } from 'framer-motion';
 
 import SearchBar from '@/components/ui/SearchBar';
 import TemperatureBadge from '@/components/ui/Nowcast';
+import TrafficBadge from '@/components/ui/TrafficBadge';
 
 export default function MapTopBar() {
   const spring = { type: 'spring', stiffness: 500, damping: 30 };
@@ -24,7 +25,8 @@ export default function MapTopBar() {
             <SearchBar />
           </motion.div>
 
-          <motion.div layout transition={spring} className="flex w-full justify-end">
+          <motion.div layout transition={spring} className="flex w-full justify-end gap-3">
+            <TrafficBadge />
             <TemperatureBadge />
           </motion.div>
         </motion.div>

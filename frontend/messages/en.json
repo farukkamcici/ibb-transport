@@ -122,6 +122,11 @@
     "autoCloses": "Auto-closes in a few seconds",
     "unavailable": "Weather unavailable"
   },
+  "traffic": {
+    "title": "Istanbul Traffic Density",
+    "description": "Real-time traffic congestion index across Istanbul. Ranges from 0% (empty) to 100% (fully congested).",
+    "source": "Source: IMM Traffic Management Center (UYM)"
+  },
   "timeSlider": {
     "timeTravel": "Time Travel"
   },

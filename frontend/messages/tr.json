@@ -122,6 +122,11 @@
     "autoCloses": "Birkaç saniye içinde otomatik kapanır",
     "unavailable": "Hava durumu bilgisi alınamadı"
   },
+  "traffic": {
+    "title": "İstanbul Trafik Yoğunluğu",
+    "description": "İstanbul genelinde anlık trafik yoğunluk endeksi. %0 (boş) ile %100 (tam yoğun) arasında değişir.",
+    "source": "Kaynak: İBB Ulaşım Yönetim Merkezi (UYM)"
+  },
   "timeSlider": {
     "timeTravel": "Zaman Seçici"
   },

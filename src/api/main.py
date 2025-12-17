@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .db import SessionLocal
-from .routers import admin, forecast, lines, nowcast, reports, schedule, status, metro
+from .routers import admin, forecast, lines, nowcast, reports, schedule, status, metro, traffic
 from .services.store import FeatureStore
 from .services.route_service import route_service
 from .utils.init_db import init_db
@@ -101,6 +101,7 @@ app.include_router(reports.router, prefix="/api")
 app.include_router(schedule.router, prefix="/api")
 app.include_router(status.router, prefix="/api")
 app.include_router(metro.router, prefix="/api")  # Metro Istanbul integration
+app.include_router(traffic.router, prefix="/api")
 
 @app.get("/")
 def read_root():
