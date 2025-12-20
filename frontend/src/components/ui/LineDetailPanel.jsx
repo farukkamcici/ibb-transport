@@ -24,8 +24,9 @@ import ScheduleModal from '../line-detail/ScheduleModal';
 import MetroScheduleModal from '../line-detail/MetroScheduleModal';
 import StatusBanner from './StatusBanner';
 import AlertsModal from './AlertsModal';
+import CapacityModal from './CapacityModal';
 import { cn } from '@/lib/utils';
-import { getForecast, getLineStatus } from '@/lib/api';
+import { getForecast, getLineStatus, getCapacityMeta, getCapacityMix } from '@/lib/api';
 import { getTransportType } from '@/lib/transportTypes';
 import { useGetTransportLabel } from '@/hooks/useGetTransportLabel';
 import useMetroTopology from '@/hooks/useMetroTopology';
@@ -98,6 +99,12 @@ export default function LineDetailPanel() {
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const [isAlertsModalOpen, setIsAlertsModalOpen] = useState(false);
   const [showCapacityTooltip, setShowCapacityTooltip] = useState(false);
+  const [isCapacityModalOpen, setIsCapacityModalOpen] = useState(false);
+  const [capacityMeta, setCapacityMeta] = useState(null);
+  const [capacityMix, setCapacityMix] = useState([]);
+  const [capacityLoading, setCapacityLoading] = useState(false);
+  const [capacityError, setCapacityError] = useState(null);
+  const capacityCacheRef = useRef(new Map());
   const [panelSize, setPanelSize] = useState({ width: 440, height: 520 });
   const resizeRef = useRef(null);
   
@@ -233,6 +240,47 @@ export default function LineDetailPanel() {
       return () => document.removeEventListener('click', handleClickOutside);
     }
   }, [showCapacityTooltip, isDesktop]);
+
+  useEffect(() => {
+    setIsCapacityModalOpen(false);
+    setCapacityMeta(null);
+    setCapacityMix([]);
+    setCapacityLoading(false);
+    setCapacityError(null);
+  }, [selectedLineId]);
+
+  const openCapacityModal = useCallback(() => {
+    const lineCode = selectedLine?.id;
+    if (!lineCode) return;
+
+    setIsCapacityModalOpen(true);
+    setShowCapacityTooltip(false);
+
+    const cached = capacityCacheRef.current.get(lineCode);
+    if (cached) {
+      setCapacityMeta(cached.meta);
+      setCapacityMix(cached.mix);
+      setCapacityError(null);
+      return;
+    }
+
+    setCapacityLoading(true);
+    setCapacityError(null);
+
+    Promise.all([getCapacityMeta(lineCode), getCapacityMix(lineCode, 10)])
+      .then(([meta, mix]) => {
+        capacityCacheRef.current.set(lineCode, { meta, mix });
+        setCapacityMeta(meta);
+        setCapacityMix(mix);
+      })
+      .catch((err) => {
+        console.error('Capacity fetch error:', err);
+        setCapacityError(tErrors('serverError'));
+      })
+      .finally(() => {
+        setCapacityLoading(false);
+      });
+  }, [selectedLine, tErrors]);
 
   useEffect(() => {
     let isMounted = true;
@@ -867,15 +915,13 @@ export default function LineDetailPanel() {
                                     </span>
                                     <div className="relative">
                                       <span 
-                                        className="flex items-center gap-1 text-gray-400 cursor-help"
+                                        className="flex items-center gap-1 text-gray-400 cursor-pointer"
                                         onMouseEnter={() => isDesktop && setShowCapacityTooltip(true)}
                                         onMouseLeave={() => isDesktop && setShowCapacityTooltip(false)}
                                         onClick={(e) => {
-                                          if (!isDesktop) {
-                                            e.stopPropagation();
-                                            setShowCapacityTooltip(!showCapacityTooltip);
-                                            vibrate(5);
-                                          }
+                                          e.stopPropagation();
+                                          openCapacityModal();
+                                          vibrate(5);
                                         }}
                                       >
                                         <span className="text-[9px] text-gray-500">{t('maxCapacity')}</span>
@@ -1024,6 +1070,19 @@ export default function LineDetailPanel() {
           onClose={() => setIsAlertsModalOpen(false)}
           messages={lineStatus?.alerts || []}
           lineCode={selectedLine.id}
+        />
+      )}
+
+      {!isMetroLine && selectedLine && (
+        <CapacityModal
+          isOpen={isCapacityModalOpen}
+          onClose={() => setIsCapacityModalOpen(false)}
+          lineCode={selectedLine.id}
+          currentHourData={currentHourData}
+          capacityMeta={capacityMeta}
+          capacityMix={capacityMix}
+          loading={capacityLoading}
+          error={capacityError}
         />
       )}
     </>

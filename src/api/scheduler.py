@@ -17,7 +17,7 @@ from .models import DailyForecast, JobExecution
 from .services.batch_forecast import run_daily_forecast_job
 from .services.metro_schedule_cache import metro_schedule_cache_service
 from .services.bus_schedule_cache import bus_schedule_cache_service
-from .state import get_model, get_feature_store
+from .state import get_model, get_feature_store, get_capacity_store
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +83,10 @@ def generate_daily_forecast(target_date: Optional[date] = None, num_days: int = 
         try:
             model = get_model()
             store = get_feature_store()
+            capacity_store = get_capacity_store()
             
             # Run forecast job for multiple days
-            result = run_daily_forecast_job(db, store, model, target_date, num_days)
+            result = run_daily_forecast_job(db, store, model, target_date, num_days, capacity_store=capacity_store)
             
             # Update stats
             job_stats[job_name]['last_run'] = datetime.now()
@@ -531,57 +532,87 @@ def refresh_single_metro_pair_job(station_id: int, direction_id: int, valid_for:
 # JOB 5: BUS SCHEDULE PREFETCH
 # ============================================================================
 
-def prefetch_bus_schedules(target_date: Optional[date] = None, force: bool = False):
+def prefetch_bus_schedules(target_date: Optional[date] = None, num_days: int = 2, force: bool = False):
     """Fetch and persist IETT planned schedules for all bus lines."""
     job_name = 'bus_schedule_prefetch'
-    target = target_date or bus_schedule_cache_service.today_istanbul()
+    start_date = target_date or (bus_schedule_cache_service.today_istanbul() + timedelta(days=1))
+    horizon_dates = [start_date + timedelta(days=offset) for offset in range(max(1, num_days))]
+
+    # Prefetch at least one valid_for per unique day_type in the horizon.
+    day_type_dates: Dict[str, date] = {}
+    for d in horizon_dates:
+        dt = bus_schedule_cache_service.day_type_for_date(d)
+        day_type_dates.setdefault(dt, d)
+
+    dates_to_prefetch = list(day_type_dates.values())
     db = SessionLocal()
     job_log = None
 
     try:
-        logger.info("🚌 [CRON] Starting bus schedule prefetch for %s", target)
+        logger.info("🚌 [CRON] Starting bus schedule prefetch for %s day(s) starting %s", num_days, start_date)
 
         job_log = JobExecution(
             job_type="bus_schedule_prefetch",
-            target_date=target,
+            target_date=start_date,
             status="RUNNING",
             start_time=datetime.now(),
-            job_metadata={"force": force, "valid_for": str(target)}
+            job_metadata={
+                "force": force,
+                "start_date": str(start_date),
+                "num_days": num_days,
+                "prefetch_dates": [str(d) for d in dates_to_prefetch],
+                "prefetch_day_types": sorted(day_type_dates.keys()),
+            }
         )
         db.add(job_log)
         db.commit()
         db.refresh(job_log)
 
-        result = bus_schedule_cache_service.prefetch_all_schedules(
-            db,
-            valid_for=target,
-            force=force
-        )
+        results = []
+        failed_lines = []
+        for valid_for in dates_to_prefetch:
+            result = bus_schedule_cache_service.prefetch_all_schedules(
+                db,
+                valid_for=valid_for,
+                force=force
+            )
+            results.append(result)
+            for row in result.get('failed_lines', []) or []:
+                failed_lines.append({**row, "valid_for": valid_for.isoformat(), "day_type": result.get("day_type")})
 
-        failed_lines = result.get('failed_lines', [])
+        combined = {
+            "start_date": start_date.isoformat(),
+            "num_days": num_days,
+            "prefetch_dates": [d.isoformat() for d in dates_to_prefetch],
+            "results": results,
+            "total_lines": max((r.get("total_lines", 0) for r in results), default=0),
+            "stored": sum(r.get("stored", 0) for r in results),
+            "failed": sum(r.get("failed", 0) for r in results),
+            "skipped": sum(r.get("skipped", 0) for r in results),
+            "failed_lines": failed_lines,
+        }
 
-        job_log.status = "SUCCESS" if result.get('failed') == 0 else "SUCCESS"
+        job_log.status = "SUCCESS"
         job_log.end_time = datetime.now()
-        job_log.records_processed = result.get('stored', 0)
+        job_log.records_processed = combined.get('stored', 0)
         job_log.job_metadata.update({
-            "total_lines": result.get('total_lines', 0),
-            "stored": result.get('stored', 0),
-            "failed": result.get('failed', 0),
-            "skipped": result.get('skipped', 0),
-            "day_type": result.get('day_type')
+            "total_lines": combined.get('total_lines', 0),
+            "stored": combined.get('stored', 0),
+            "failed": combined.get('failed', 0),
+            "skipped": combined.get('skipped', 0),
         })
         db.commit()
 
         job_stats[job_name]['last_run'] = datetime.now()
         job_stats[job_name]['run_count'] += 1
-        job_stats[job_name]['last_status'] = 'success' if result.get('failed') == 0 else 'partial'
+        job_stats[job_name]['last_status'] = 'success' if combined.get('failed') == 0 else 'partial'
 
         bus_cache_state['last_run'] = datetime.now()
-        bus_cache_state['last_result'] = result
-        bus_cache_state['current_valid_for'] = target
+        bus_cache_state['last_result'] = combined
+        bus_cache_state['current_valid_for'] = start_date
 
         if failed_lines:
-            _set_pending_bus_lines(failed_lines, target)
+            _set_pending_bus_lines(failed_lines)
             _schedule_bus_retry_job()
             bus_cache_state['last_success'] = bus_cache_state.get('last_success')
             job_stats[job_name]['last_status'] = 'partial'
@@ -592,7 +623,7 @@ def prefetch_bus_schedules(target_date: Optional[date] = None, force: bool = Fal
             _cancel_bus_retry_job()
             logger.info("✅ [CRON] Bus schedules cached for all %s lines", result.get('total_lines'))
 
-        return result
+        return combined
 
     except Exception as exc:
         job_stats[job_name]['error_count'] += 1
@@ -617,28 +648,34 @@ def retry_failed_bus_lines():
         _cancel_bus_retry_job()
         return
 
-    target = bus_cache_state.get('current_valid_for') or bus_schedule_cache_service.today_istanbul()
     db = SessionLocal()
     try:
         resolved = []
-        for line_code, info in list(pending.items()):
+        for key, info in list(pending.items()):
+            line_code = info.get('line_code')
+            valid_for_str = info.get('valid_for')
+            if not line_code or not valid_for_str:
+                resolved.append(key)
+                continue
+
+            valid_for = date.fromisoformat(valid_for_str)
             result = bus_schedule_cache_service.refresh_single_line(
                 db,
                 line_code=line_code,
-                valid_for=target,
+                valid_for=valid_for,
                 force=True
             )
 
             if result.get('status') == 'success':
-                resolved.append(line_code)
+                resolved.append(key)
             else:
                 info['attempts'] = info.get('attempts', 0) + 1
                 info['last_error'] = result.get('error')
                 if info['attempts'] >= 10:
                     info['abandoned'] = True
 
-        for line_code in resolved:
-            pending.pop(line_code, None)
+        for key in resolved:
+            pending.pop(key, None)
 
         if not pending:
             bus_cache_state['last_success'] = datetime.now()
@@ -649,17 +686,21 @@ def retry_failed_bus_lines():
         db.close()
 
 
-def _set_pending_bus_lines(failed_lines: List[Dict], valid_for: date):
-    pending = {}
+def _set_pending_bus_lines(failed_lines: List[Dict]):
+    pending = bus_cache_state.get('pending_lines') or {}
     for row in failed_lines:
         line_code = row.get('line_code')
+        valid_for = row.get('valid_for')
         if not line_code:
             continue
-        pending[line_code] = {
+
+        pending_key = f"{line_code}|{valid_for or ''}"
+        pending[pending_key] = {
             'line_code': line_code,
             'last_error': row.get('error'),
             'attempts': 0,
-            'valid_for': valid_for.isoformat()
+            'valid_for': valid_for,
+            'day_type': row.get('day_type'),
         }
     bus_cache_state['pending_lines'] = pending
 
@@ -699,12 +740,12 @@ def get_bus_cache_runtime_state() -> Dict:
     }
 
 
-def trigger_bus_prefetch_now(target_date: Optional[date] = None, force: bool = False):
+def trigger_bus_prefetch_now(target_date: Optional[date] = None, num_days: int = 2, force: bool = False):
     scheduler.add_job(
         prefetch_bus_schedules,
         'date',
         run_date=datetime.now(),
-        args=[target_date, force],
+        args=[target_date, num_days, force],
         id='manual_bus_prefetch',
         replace_existing=True
     )
@@ -746,41 +787,21 @@ def start_scheduler():
     
     logger.info("⏰ Initializing APScheduler...")
     
-    # JOB 1: Daily Forecast - Every day at 02:00 Istanbul time
+    # JOB 1: Bus schedule prefetch - should run before forecast
     scheduler.add_job(
-        generate_daily_forecast,
-        trigger=CronTrigger(hour=2, minute=0, timezone="Europe/Istanbul"),
-        id="daily_forecast",
-        name="Generate Forecasts (T+1, T+2)",
+        prefetch_bus_schedules,
+        trigger=CronTrigger(hour=0, minute=10, timezone="Europe/Istanbul"),
+        id="bus_schedule_prefetch",
+        name="Prefetch Bus Schedules",
         replace_existing=True,
         misfire_grace_time=3600,  # Allow 1 hour delay if server was down
         coalesce=True  # Combine missed runs into one
     )
-    
-    # JOB 2: Cleanup - Every day at 03:00 Istanbul time
-    scheduler.add_job(
-        cleanup_old_forecasts,
-        trigger=CronTrigger(hour=3, minute=0, timezone="Europe/Istanbul"),
-        id="cleanup_old_forecasts",
-        name="Delete Old Forecasts (>3 days)",
-        replace_existing=True,
-        misfire_grace_time=7200  # Allow 2 hour delay
-    )
-    
-    # JOB 3: Data Quality Check - Every day at 04:00 Istanbul time
-    scheduler.add_job(
-        data_quality_check,
-        trigger=CronTrigger(hour=4, minute=0, timezone="Europe/Istanbul"),
-        id="data_quality_check",
-        name="Verify Data Quality",
-        replace_existing=True,
-        misfire_grace_time=3600
-    )
 
-    # JOB 4: Metro Schedule Prefetch - Every day at 03:15 Istanbul time
+    # JOB 2: Metro Schedule Prefetch
     scheduler.add_job(
         prefetch_metro_schedules,
-        trigger=CronTrigger(hour=3, minute=15, timezone="Europe/Istanbul"),
+        trigger=CronTrigger(hour=2, minute=30, timezone="Europe/Istanbul"),
         id="metro_schedule_prefetch",
         name="Prefetch Metro Timetables",
         replace_existing=True,
@@ -788,15 +809,35 @@ def start_scheduler():
         coalesce=True
     )
 
-    # JOB 5: Bus Schedule Prefetch - Every day at 04:15 Istanbul time
+    # JOB 3: Daily Forecast (T+1..T+N)
     scheduler.add_job(
-        prefetch_bus_schedules,
-        trigger=CronTrigger(hour=4, minute=15, timezone="Europe/Istanbul"),
-        id="bus_schedule_prefetch",
-        name="Prefetch Bus Schedules",
+        generate_daily_forecast,
+        trigger=CronTrigger(hour=4, minute=0, timezone="Europe/Istanbul"),
+        id="daily_forecast",
+        name="Generate Forecasts (T+1, T+2)",
         replace_existing=True,
         misfire_grace_time=3600,
         coalesce=True
+    )
+
+    # JOB 4: Cleanup
+    scheduler.add_job(
+        cleanup_old_forecasts,
+        trigger=CronTrigger(hour=4, minute=15, timezone="Europe/Istanbul"),
+        id="cleanup_old_forecasts",
+        name="Delete Old Forecasts (>3 days)",
+        replace_existing=True,
+        misfire_grace_time=7200
+    )
+
+    # JOB 5: Data quality check
+    scheduler.add_job(
+        data_quality_check,
+        trigger=CronTrigger(hour=4, minute=30, timezone="Europe/Istanbul"),
+        id="data_quality_check",
+        name="Verify Data Quality",
+        replace_existing=True,
+        misfire_grace_time=3600
     )
 
     # Start the scheduler

@@ -75,6 +75,7 @@ class BusCacheRefreshRequest(BaseModel):
     mode: str = "all"  # 'all' or 'line'
     line_code: Optional[str] = None
     target_date: Optional[date] = None
+    num_days: int = 2
     force: bool = False
 
 
@@ -336,7 +337,7 @@ def refresh_bus_cache(
     current_user: AdminUser = Depends(get_current_user)
 ):
     """Trigger bus schedule refresh for all lines or a single line."""
-    target_date = payload.target_date or bus_schedule_cache_service.today_istanbul()
+    target_date = payload.target_date
 
     if payload.mode == 'line':
         if not payload.line_code:
@@ -348,10 +349,11 @@ def refresh_bus_cache(
             "target_date": target_date
         }
 
-    sched.trigger_bus_prefetch_now(target_date, payload.force)
+    sched.trigger_bus_prefetch_now(target_date, payload.num_days, payload.force)
     return {
         "message": "Bus schedule prefetch scheduled",
         "target_date": target_date,
+        "num_days": payload.num_days,
         "force": payload.force
     }
 

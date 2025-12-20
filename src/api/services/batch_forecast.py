@@ -9,14 +9,23 @@ from ..models import TransportLine, DailyForecast, JobExecution
 from ..schemas import ModelInput
 from ..state import COLUMN_ORDER
 from .store import FeatureStore
+from .capacity_store import CapacityStore, DEFAULT_VEHICLE_CAPACITY_FALLBACK
 from .weather import fetch_daily_weather_data_sync
+from .bus_schedule_cache import bus_schedule_cache_service
 
 # Placeholder for Istanbul coordinates
 ISTANBUL_LAT = 41.0082
 ISTANBUL_LON = 28.9784
 
 
-def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster, target_date: datetime.date, num_days: int = 1):
+def run_daily_forecast_job(
+    db: Session,
+    store: FeatureStore,
+    model: lgb.Booster,
+    target_date: datetime.date,
+    num_days: int = 1,
+    capacity_store: CapacityStore | None = None,
+):
     """
     Run daily forecast job in background for one or more days.
     
@@ -32,6 +41,7 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
     # Create a NEW session for this background task (ignore the passed session)
     db = SessionLocal()
     job_log = None
+    capacity_store = capacity_store or CapacityStore()
     
     try:
         # Calculate end date for the job
@@ -64,6 +74,7 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
         for day_offset in range(num_days):
             current_date = target_date + pd.Timedelta(days=day_offset)
             date_str = current_date.strftime("%Y-%m-%d")
+            forecast_date = current_date.date() if hasattr(current_date, "date") else current_date
             
             print(f"\n{'='*60}")
             print(f"Processing day {day_offset + 1}/{num_days}: {date_str}")
@@ -91,6 +102,23 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
             print("Batch-loading lag features for all lines...")
             lag_batch = store.get_batch_historical_lags(line_names, date_str)
             print(f"✓ Lag features loaded: {len(lag_batch.get('seasonal', {}))} seasonal, {len(lag_batch.get('fallback', {}))} fallback")
+
+            print("Loading bus schedule trips-per-hour (cache, fallback to live fetch on miss)...")
+            trips_per_hour_by_line = {}
+            for idx, line_name in enumerate(line_names):
+                if idx % 200 == 0:
+                    print(f"Loading schedules: {idx}/{len(line_names)} lines...")
+                payload, _, _ = bus_schedule_cache_service.get_or_fetch_schedule(
+                    db,
+                    line_name,
+                    valid_for=forecast_date,
+                )
+                trips_per_hour_by_line[line_name] = bus_schedule_cache_service.trips_per_hour_from_payload(payload)
+
+            vehicle_capacity_by_line = {
+                line_name: capacity_store.get_capacity_meta(line_name).expected_capacity_weighted_int
+                for line_name in line_names
+            }
             
             fallback_lags = {
                 'lag_24h': 0.0, 'lag_48h': 0.0, 'lag_168h': 0.0,
@@ -144,12 +172,13 @@ def run_daily_forecast_job(db: Session, store: FeatureStore, model: lgb.Booster,
                         print(f"Processing results: {idx}/{len(predictions)}...")
                         
                     prediction = float(max(0, prediction_np))
-                    max_capacity = store.line_max_capacity.get(line_name, store.global_average_max)
-                    occupancy_pct = 0
-                    if max_capacity > 0:
-                        occupancy_pct = round((prediction / max_capacity) * 100)
+                    trips = trips_per_hour_by_line.get(line_name, [0] * 24)[hour]
+                    trips_effective = max(1, int(trips))
+                    vehicle_capacity = vehicle_capacity_by_line.get(line_name, DEFAULT_VEHICLE_CAPACITY_FALLBACK)
+                    max_capacity = max(1, int(vehicle_capacity * trips_effective))
 
-                    crowd_level = store.get_crowd_level(line_name, prediction)
+                    occupancy_pct = min(100, round((prediction / max_capacity) * 100))
+                    crowd_level = store.get_crowd_level(line_name, prediction, max_capacity=max_capacity)
 
                     forecasts_to_insert.append({
                         "line_name": line_name,

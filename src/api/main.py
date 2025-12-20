@@ -5,8 +5,9 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .db import SessionLocal
-from .routers import admin, forecast, lines, nowcast, reports, schedule, status, metro, traffic
+from .routers import admin, forecast, lines, nowcast, reports, schedule, status, metro, traffic, capacity
 from .services.store import FeatureStore
+from .services.capacity_store import CapacityStore
 from .services.route_service import route_service
 from .utils.init_db import init_db
 from .state import AppState
@@ -33,6 +34,9 @@ async def lifespan(app: FastAPI):
     
     # Initialize the Feature Store and assign to AppState
     AppState.store = FeatureStore()
+
+    # Initialize capacity artifacts store (parquet snapshots)
+    AppState.capacity_store = CapacityStore()
     
     # Load route shapes into memory
     print("Loading route shape data...")
@@ -52,6 +56,7 @@ async def lifespan(app: FastAPI):
     print("Clearing model and feature store cache...")
     AppState.model = None
     AppState.store = None
+    AppState.capacity_store = None
 
 app = FastAPI(lifespan=lifespan)
 
@@ -102,6 +107,7 @@ app.include_router(schedule.router, prefix="/api")
 app.include_router(status.router, prefix="/api")
 app.include_router(metro.router, prefix="/api")  # Metro Istanbul integration
 app.include_router(traffic.router, prefix="/api")
+app.include_router(capacity.router, prefix="/api")
 
 @app.get("/")
 def read_root():

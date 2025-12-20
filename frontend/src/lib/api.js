@@ -174,4 +174,24 @@ export const getLineStatus = async (lineCode, direction = null) => {
   }
 };
 
+export const getCapacityMeta = async (lineCode) => {
+  if (!lineCode) {
+    throw new Error('Line code is required');
+  }
+
+  const response = await apiClient.get(`/capacity/${encodeURIComponent(lineCode)}`);
+  return response.data;
+};
+
+export const getCapacityMix = async (lineCode, topK = 10) => {
+  if (!lineCode) {
+    throw new Error('Line code is required');
+  }
+
+  const response = await apiClient.get(`/capacity/${encodeURIComponent(lineCode)}/mix`, {
+    params: { top_k: topK },
+  });
+  return response.data;
+};
+
 export { apiClient };

@@ -1,9 +1,11 @@
 from .services.store import FeatureStore
+from .services.capacity_store import CapacityStore
 import lightgbm as lgb
 
 class AppState:
     model: lgb.Booster = None
     store: FeatureStore = None
+    capacity_store: CapacityStore = None
 
 # Define the exact column order required by the LightGBM model
 COLUMN_ORDER = [
@@ -24,3 +26,10 @@ def get_feature_store() -> FeatureStore:
     if AppState.store is None:
         raise RuntimeError("Feature Store is not initialized.")
     return AppState.store
+
+
+def get_capacity_store() -> CapacityStore:
+    """Dependency to get the initialized CapacityStore."""
+    if AppState.capacity_store is None:
+        raise RuntimeError("Capacity store is not initialized.")
+    return AppState.capacity_store

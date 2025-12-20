@@ -233,6 +233,27 @@ class BusScheduleCacheService:
             "valid_for": target_date.isoformat(),
         }
 
+    def trips_per_hour_from_payload(self, payload: Optional[Dict]) -> List[int]:
+        """Compute trips-per-hour from a cached schedule payload.
+
+        The forecast model predicts G+D total passengers, so this returns the
+        combined G+D trips-per-hour counts.
+        """
+        counts = [0] * 24
+        if not payload:
+            return counts
+
+        for direction in ("G", "D"):
+            for time_str in payload.get(direction, []) or []:
+                parsed = self._parse_time(time_str)
+                if not parsed:
+                    continue
+                hour = int(parsed.hour)
+                if 0 <= hour <= 23:
+                    counts[hour] += 1
+
+        return counts
+
     # ------------------------------------------------------------------
     # DB helpers
     # ------------------------------------------------------------------
@@ -307,6 +328,75 @@ class BusScheduleCacheService:
             return fallback.payload, True, fallback
 
         return None, True, None
+
+    def get_or_fetch_schedule(
+        self,
+        db: Session,
+        line_code: str,
+        *,
+        valid_for: Optional[date] = None,
+        max_stale_days: int = 2,
+    ) -> Tuple[Optional[Dict], bool, bool]:
+        """Return a cached schedule; on miss, fetch from upstream and persist.
+
+        Returns:
+            (payload, is_stale, fetched_live)
+        """
+        payload, is_stale, record = self.get_cached_schedule(
+            db,
+            line_code,
+            valid_for=valid_for,
+            max_stale_days=max_stale_days,
+        )
+        if payload is not None:
+            return payload, is_stale, False
+
+        target = valid_for or self.today_istanbul()
+        day_type = self.day_type_for_date(target)
+
+        try:
+            raw_rows = self.fetch_schedule_from_api(line_code)
+            payload = self.build_filtered_payload(raw_rows, target_date=target)
+            self.store_schedule(
+                db,
+                line_code=line_code,
+                valid_for=target,
+                day_type=day_type,
+                payload=payload,
+                status='SUCCESS',
+            )
+            return payload, False, True
+        except Exception as exc:
+            logger.warning(
+                "Live fetch failed for bus schedule line=%s valid_for=%s: %s",
+                line_code,
+                target,
+                exc,
+            )
+
+            failed_payload = {
+                "G": [],
+                "D": [],
+                "meta": {},
+                "has_service_today": False,
+                "data_status": "NO_DATA",
+                "day_type": day_type,
+                "valid_for": target.isoformat(),
+            }
+            try:
+                self.store_schedule(
+                    db,
+                    line_code=line_code,
+                    valid_for=target,
+                    day_type=day_type,
+                    payload=failed_payload,
+                    status='FAILED',
+                    error_message=str(exc)[:1000],
+                )
+            except Exception:
+                pass
+
+            return None, True, True
 
     def cleanup_old_entries(self, db: Session, *, older_than_days: Optional[int] = None) -> int:
         cutoff_days = older_than_days or self.retention_days

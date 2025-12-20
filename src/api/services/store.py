@@ -280,8 +280,8 @@ class FeatureStore:
             'fallback': fallback_dict
         }
 
-    def get_crowd_level(self, line_name: str, prediction_value: float) -> str:
-        max_capacity = self.line_max_capacity.get(line_name, self.global_average_max)
+    def get_crowd_level(self, line_name: str, prediction_value: float, *, max_capacity: float | None = None) -> str:
+        max_capacity = max_capacity or self.line_max_capacity.get(line_name, self.global_average_max)
         if max_capacity is None or max_capacity == 0: return "Unknown"
 
         occupancy_rate = prediction_value / max_capacity
