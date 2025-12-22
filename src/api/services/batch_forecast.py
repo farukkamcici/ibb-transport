@@ -12,6 +12,8 @@ from .store import FeatureStore
 from .capacity_store import CapacityStore, DEFAULT_VEHICLE_CAPACITY_FALLBACK
 from .weather import fetch_daily_weather_data_sync
 from .bus_schedule_cache import bus_schedule_cache_service
+from .metro_schedule_cache import metro_schedule_cache_service
+from .metro_service import metro_service
 
 # Placeholder for Istanbul coordinates
 ISTANBUL_LAT = 41.0082
@@ -67,6 +69,8 @@ def run_daily_forecast_job(
         line_names = [line[0] for line in all_lines]
         print(f"Found {len(line_names)} lines to process.")
 
+        rail_line_codes = set(metro_service.get_lines().keys())
+
         all_forecasts_to_insert = []
         total_processed_count = 0
         
@@ -118,18 +122,28 @@ def run_daily_forecast_job(
                 if idx % 200 == 0:
                     print(f"Loading schedules: {idx}/{len(line_names)} lines (target={date_str}, day_type={day_type})...")
                 
-                # Get cached schedule (prefetch job should have created exact match)
-                # Falls back to same day_type if exact date not found (max 7 days stale)
+                # Rail lines: compute trips-per-hour from Metro timetable cache.
+                if line_name in rail_line_codes or line_name == 'M1':
+                    metro_trips = metro_schedule_cache_service.get_line_trips_per_hour(
+                        db,
+                        line_name,
+                        valid_for=forecast_date,
+                        max_stale_days=7,
+                    )
+                    if metro_trips is not None:
+                        cache_hits += 1
+                        trips_per_hour_by_line[line_name] = metro_trips
+                        continue
+
+                # Bus/ferry: get cached planned schedule (prefetch job should have created exact match).
                 payload, is_stale, record = bus_schedule_cache_service.get_cached_schedule(
                     db,
                     line_name,
                     valid_for=forecast_date,
                     max_stale_days=7,
                 )
-                
+
                 if payload is None:
-                    # No cache available - use fallback to enable forecast generation
-                    # UI will show "schedule data unavailable" but still display predictions
                     cache_misses += 1
                     if cache_misses <= 10:
                         print(f"⚠️  No cached schedule for {line_name} (day_type={day_type}), using fallback")

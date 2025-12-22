@@ -186,6 +186,135 @@ class MetroScheduleCacheService:
         ).order_by(MetroScheduleCache.valid_for.desc()).first()
 
     # ------------------------------------------------------------------
+    # Trips-per-hour helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def trips_per_hour_from_timetable_payload(payload: Optional[Dict]) -> List[int]:
+        """Compute trips-per-hour from a Metro Istanbul GetTimeTable payload.
+
+        Payload format (observed):
+          { Success: bool, Data: [ { TimeInfos: { Times: ["HH:MM", ...] }, ... }, ... ] }
+        """
+        counts = [0] * 24
+        if not payload:
+            return counts
+
+        data = payload.get("Data") or []
+        if not isinstance(data, list):
+            return counts
+
+        all_times: List[str] = []
+        for row in data:
+            time_infos = (row or {}).get("TimeInfos") or {}
+            times = time_infos.get("Times") or []
+            if isinstance(times, list):
+                all_times.extend([t for t in times if isinstance(t, str)])
+
+        # Deduplicate to avoid counting multiple schedule segments.
+        for time_str in set(all_times):
+            parts = time_str.strip().split(':')
+            if len(parts) < 2:
+                continue
+            try:
+                hour = int(parts[0])
+            except Exception:
+                continue
+            if 0 <= hour <= 23:
+                counts[hour] += 1
+        return counts
+
+    def get_line_trips_per_hour(
+        self,
+        db: Session,
+        line_code: str,
+        *,
+        valid_for: date,
+        max_stale_days: int = 2,
+    ) -> Optional[List[int]]:
+        """Return combined (both directions) trips-per-hour for a metro line.
+
+        Strategy:
+        - Use terminus stations only (first + last station on the line).
+        - For each terminus, aggregate departures across all direction_ids
+          available at that station.
+        - Combine both termini to get total departures per hour (both directions).
+
+        Returns None if no usable cached timetable is found.
+        """
+        line_code = (line_code or "").strip()
+
+        # Backwards-compatible alias: our forecasts use "M1" while topology uses M1A/M1B.
+        # For capacity/trips we pool both branches.
+        line_codes = [line_code]
+        if line_code == "M1":
+            line_codes = ["M1A", "M1B"]
+
+        combined = [0] * 24
+        any_found = False
+
+        def add_station_departures(station: Dict) -> None:
+            nonlocal combined, any_found
+
+            station_id = station.get("id")
+            if station_id is None:
+                return
+
+            direction_ids = [d.get("id") for d in (station.get("directions") or []) if d.get("id") is not None]
+            if not direction_ids:
+                return
+
+            # Union times at the terminus across all direction variants to avoid double counting
+            # when topology exposes multiple direction_ids for the same physical departure set.
+            terminus_times: set[str] = set()
+            for direction_id in direction_ids:
+                payload, _, _ = self.get_cached_schedule(
+                    db,
+                    int(station_id),
+                    int(direction_id),
+                    valid_for=valid_for,
+                    max_stale_days=max_stale_days,
+                )
+                if not payload:
+                    continue
+
+                data = payload.get("Data") or []
+                if not isinstance(data, list):
+                    continue
+                for row in data:
+                    time_infos = (row or {}).get("TimeInfos") or {}
+                    times = time_infos.get("Times") or []
+                    if isinstance(times, list):
+                        terminus_times.update([t for t in times if isinstance(t, str)])
+
+            if not terminus_times:
+                return
+
+            # Convert unioned times into per-hour counts.
+            counts = self.trips_per_hour_from_timetable_payload({"Data": [{"TimeInfos": {"Times": sorted(terminus_times)}}]})
+            if any(counts):
+                any_found = True
+                combined = [a + b for a, b in zip(combined, counts)]
+
+        for code in line_codes:
+            line = metro_service.get_line(code)
+            if not line:
+                continue
+            stations = sorted((line.get("stations") or []), key=lambda s: s.get("order", 0))
+            if not stations:
+                continue
+
+            first_station = stations[0]
+            last_station = stations[-1]
+
+            # Only count departures starting from termini. Intermediate stations include
+            # pass-through trains, which would inflate capacity.
+            add_station_departures(first_station)
+            add_station_departures(last_station)
+
+        return combined if any_found else None
+
+    # ------------------------------------------------------------------
     # Prefetch orchestration
     # ------------------------------------------------------------------
 

@@ -1,0 +1,32 @@
+# Static per-departure vehicle capacities for rail lines.
+#
+# Values represent capacity for ONE departure in ONE direction (i.e., one train/tram/funicular vehicle).
+# The forecasting pipeline converts this into hourly capacity via:
+#   max_capacity(hour) = trips_per_hour(hour) * vehicle_capacity
+#
+# For lines with multiple consists/variants, we pick the larger (e.g., 8-car over 4-car)
+# as a simple, conservative default.
+
+M1: 1100
+M2: 2100
+M3: 1080
+M4: 2600
+M5: 1620
+M6: 1050
+M7: 2160
+M8: 1081
+M9: 1080
+
+T1: 520
+T3: 50
+T4: 900
+T5: 290
+
+TF1: 6
+TF2: 8
+
+F1: 375
+F4: 200
+
+MARMARAY: 3000
+

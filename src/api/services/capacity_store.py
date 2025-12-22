@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import polars as pl
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -35,17 +36,41 @@ class CapacityStore:
         self,
         *,
         processed_dir: str = "data/processed/bus_capacity_snapshots",
+        rail_capacity_path: str = "config/rail_capacity.yaml",
         vehicle_capacity_fallback: int = DEFAULT_VEHICLE_CAPACITY_FALLBACK,
     ) -> None:
         self.processed_dir = Path(processed_dir)
+        self.rail_capacity_path = Path(rail_capacity_path)
         self.vehicle_capacity_fallback = int(vehicle_capacity_fallback)
 
         self._rep_meta_by_line: Dict[str, Dict[str, Any]] = {}
         self._mix_by_line: Dict[str, List[Dict[str, Any]]] = {}
+        self._rail_static_by_line: Dict[str, int] = {}
 
         self._load()
 
     def _load(self) -> None:
+        # Static rail capacities (optional)
+        if self.rail_capacity_path.exists():
+            try:
+                raw = yaml.safe_load(self.rail_capacity_path.read_text(encoding="utf-8")) or {}
+                if not isinstance(raw, dict):
+                    raise ValueError("rail_capacity.yaml must be a mapping of line_code -> int")
+                for k, v in raw.items():
+                    code = str(k or "").strip()
+                    if not code:
+                        continue
+                    try:
+                        cap = int(str(v).replace(",", "").strip())
+                    except Exception:
+                        continue
+                    if cap > 0:
+                        self._rail_static_by_line[code] = cap
+            except Exception as exc:
+                logger.exception("Failed to load static rail capacities (%s): %s", self.rail_capacity_path, exc)
+        else:
+            logger.info("Static rail capacities not found: %s", self.rail_capacity_path)
+
         rep_path = self.processed_dir / "line_capacity_representative_vehicle.parquet"
         mix_path = self.processed_dir / "line_capacity_vehicle_mix.parquet"
 
@@ -116,6 +141,23 @@ class CapacityStore:
 
     def get_capacity_meta(self, line_code: str) -> CapacityMeta:
         line_code = (line_code or "").strip()
+
+        # Aliases: forecasts can expose split codes (M1A/M1B) but capacity is defined at M1.
+        if line_code in ("M1A", "M1B"):
+            line_code = "M1"
+
+        # Static rail override.
+        static_cap = self._rail_static_by_line.get(line_code)
+        if static_cap:
+            return CapacityMeta(
+                line_code=line_code,
+                expected_capacity_weighted_int=int(static_cap),
+                capacity_min=int(static_cap),
+                capacity_max=int(static_cap),
+                confidence="static",
+                notes="Static rail capacity table (per-departure vehicle capacity).",
+            )
+
         row = self._rep_meta_by_line.get(line_code)
         if not row:
             return CapacityMeta(
@@ -155,4 +197,3 @@ class CapacityStore:
         if not rows:
             return []
         return rows[: max(1, int(top_k))]
-
