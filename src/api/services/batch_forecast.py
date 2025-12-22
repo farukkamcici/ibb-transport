@@ -187,7 +187,9 @@ def run_daily_forecast_job(
                         "predicted_value": prediction,
                         "occupancy_pct": occupancy_pct,
                         "crowd_level": crowd_level,
-                        "max_capacity": int(max_capacity)
+                        "max_capacity": int(max_capacity),
+                        "trips_per_hour": int(trips),
+                        "vehicle_capacity": int(vehicle_capacity)
                     })
                 
                 print(f"Result processing complete: {len(forecasts_to_insert)} forecasts ready for {date_str}.")
@@ -208,6 +210,8 @@ def run_daily_forecast_job(
                     'occupancy_pct': stmt.excluded.occupancy_pct,
                     'crowd_level': stmt.excluded.crowd_level,
                     'max_capacity': stmt.excluded.max_capacity,
+                    'trips_per_hour': stmt.excluded.trips_per_hour,
+                    'vehicle_capacity': stmt.excluded.vehicle_capacity,
                 }
             )
             db.execute(stmt)

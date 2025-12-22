@@ -160,6 +160,8 @@ class HourlyForecastResponse(BaseModel):
     crowd_level: str = Field(..., description="Crowd level: Low, Medium, High, Very High, or Out of Service")
     max_capacity: int = Field(..., gt=0, description="Maximum line capacity")
     in_service: bool = Field(..., description="Whether the line is in service during this hour")
+    trips_per_hour: Optional[int] = Field(None, ge=0, description="Number of scheduled trips (G+D combined)")
+    vehicle_capacity: Optional[int] = Field(None, gt=0, description="Expected per-vehicle capacity")
 
     class Config:
         json_schema_extra = {
@@ -169,7 +171,9 @@ class HourlyForecastResponse(BaseModel):
                 "occupancy_pct": 70,
                 "crowd_level": "High",
                 "max_capacity": 94091,
-                "in_service": True
+                "in_service": True,
+                "trips_per_hour": 45,
+                "vehicle_capacity": 100
             }
         }
 
@@ -256,7 +260,9 @@ def get_daily_forecast(
                     "occupancy_pct": forecast.occupancy_pct,
                     "crowd_level": forecast.crowd_level,
                     "max_capacity": forecast.max_capacity,
-                    "in_service": True
+                    "in_service": True,
+                    "trips_per_hour": forecast.trips_per_hour,
+                    "vehicle_capacity": forecast.vehicle_capacity
                 })
             else:
                 # Out of service - null the prediction values
@@ -266,7 +272,9 @@ def get_daily_forecast(
                     "occupancy_pct": None,
                     "crowd_level": "Out of Service",
                     "max_capacity": forecast.max_capacity,
-                    "in_service": False
+                    "in_service": False,
+                    "trips_per_hour": forecast.trips_per_hour,
+                    "vehicle_capacity": forecast.vehicle_capacity
                 })
         
         return processed_forecasts

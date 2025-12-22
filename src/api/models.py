@@ -30,6 +30,8 @@ class DailyForecast(Base):
     occupancy_pct = Column(Integer, nullable=False)
     crowd_level = Column(String, nullable=False)
     max_capacity = Column(Integer, nullable=False)
+    trips_per_hour = Column(Integer, nullable=True)
+    vehicle_capacity = Column(Integer, nullable=True)
 
     __table_args__ = (
         UniqueConstraint('line_name', 'date', 'hour', name='_line_date_hour_uc'),

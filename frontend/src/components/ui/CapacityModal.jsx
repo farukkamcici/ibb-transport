@@ -1,5 +1,5 @@
 'use client';
-import { X, Users, Bus, TrendingUp } from 'lucide-react';
+import { X, Users, Bus, TrendingUp, Calendar } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 
 function clampPercent(value) {
@@ -21,14 +21,10 @@ export default function CapacityModal({
 
   if (!isOpen) return null;
 
-  const expectedPerVehicle = capacityMeta?.expected_capacity_weighted_int || null;
+  const expectedPerVehicle = currentHourData?.vehicle_capacity || capacityMeta?.expected_capacity_weighted_int || null;
   const effectiveCapacity = currentHourData?.max_capacity || null;
   const predicted = currentHourData?.predicted_value ?? null;
-
-  const inferredTripsPerHour = (() => {
-    if (!expectedPerVehicle || !effectiveCapacity) return null;
-    return Math.max(1, Math.round(effectiveCapacity / expectedPerVehicle));
-  })();
+  const tripsPerHour = currentHourData?.trips_per_hour ?? null;
 
   const metaNote = capacityMeta?.confidence === 'fallback' ? t('capacityFallbackNote') : null;
 
@@ -74,90 +70,122 @@ export default function CapacityModal({
               </div>
             ) : (
               <>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <Bus size={14} />
-                      <span>{t('capacityPerVehicle')}</span>
+                <div className="rounded-lg border border-sky-500/30 bg-sky-500/5 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-sky-500/20">
+                      <TrendingUp size={16} className="text-sky-300" />
                     </div>
-                    <div className="mt-1 text-lg font-semibold text-white">
-                      {expectedPerVehicle ? expectedPerVehicle.toLocaleString() : '—'}
+                    <div>
+                      <div className="text-sm font-semibold text-white">{t('capacityEffective')}</div>
+                      <div className="text-[10px] text-gray-400">{t('capacityEffectiveDesc')}</div>
                     </div>
-                    {capacityMeta?.confidence && (
-                      <div className="mt-1 text-[11px] text-gray-500">{capacityMeta.confidence}</div>
-                    )}
                   </div>
-
-                  <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-                    <div className="flex items-center gap-2 text-xs text-gray-400">
-                      <TrendingUp size={14} />
-                      <span>{t('capacityEffective')}</span>
-                    </div>
-                    <div className="mt-1 text-lg font-semibold text-white">
+                  <div className="flex items-baseline gap-2">
+                    <div className="text-3xl font-bold text-sky-200">
                       {effectiveCapacity ? effectiveCapacity.toLocaleString() : '—'}
                     </div>
-                    <div className="mt-1 text-[11px] text-gray-500">
-                      {t('capacityTripsPerHour')}: {inferredTripsPerHour ?? '—'}
+                    <div className="text-sm text-gray-400">{t('passengers')}</div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-4 text-xs">
+                    <div className="flex items-center gap-1.5">
+                      <Calendar size={12} className="text-gray-500" />
+                      <span className="text-gray-400">{t('capacityTripsPerHour')}:</span>
+                      <span className="font-semibold text-white">{tripsPerHour ?? '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Bus size={12} className="text-gray-500" />
+                      <span className="text-gray-400">{t('capacityPerVehicle')}:</span>
+                      <span className="font-semibold text-white">{expectedPerVehicle ? expectedPerVehicle.toLocaleString() : '—'}</span>
                     </div>
                   </div>
-                </div>
-
-                <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-                  <div className="flex items-center justify-between text-xs text-gray-400">
-                    <span>{t('capacityPredicted')}</span>
-                    <span className="text-gray-500">{t('capacityOccupancy')}</span>
-                  </div>
-                  <div className="mt-1 flex items-end justify-between">
-                    <div className="text-lg font-semibold text-white">
-                      {predicted == null ? '—' : Math.round(predicted).toLocaleString()}
+                  {capacityMeta?.confidence && (
+                    <div className="mt-2 text-[11px] text-gray-500">
+                      {t('capacityConfidence')}: {capacityMeta.confidence}
                     </div>
-                    <div className="text-sm font-semibold text-sky-200">
-                      {clampPercent(currentHourData?.occupancy_pct) == null ? '—' : `${clampPercent(currentHourData?.occupancy_pct)}%`}
-                    </div>
-                  </div>
-                  {metaNote && (
-                    <div className="mt-2 text-[11px] text-gray-400">{metaNote}</div>
                   )}
                 </div>
 
                 <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-                  <div className="text-sm font-semibold text-white">{t('capacityVehicleMixTitle')}</div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Users size={14} className="text-gray-400" />
+                    <div className="text-sm font-semibold text-white">{t('capacityCurrentHour')}</div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-[11px] text-gray-400">{t('capacityPredicted')}</div>
+                      <div className="text-lg font-semibold text-white">
+                        {predicted == null ? '—' : Math.round(predicted).toLocaleString()}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[11px] text-gray-400">{t('capacityOccupancy')}</div>
+                      <div className="text-lg font-semibold text-sky-200">
+                        {clampPercent(currentHourData?.occupancy_pct) == null ? '—' : `${clampPercent(currentHourData?.occupancy_pct)}%`}
+                      </div>
+                    </div>
+                  </div>
+                  {metaNote && (
+                    <div className="mt-3 rounded-md bg-yellow-500/10 border border-yellow-500/20 px-3 py-2 text-[11px] text-yellow-200">
+                      {metaNote}
+                    </div>
+                  )}
+                </div>
 
-                  {capacityMix?.length ? (
-                    <div className="mt-3 space-y-2">
-                      {capacityMix.map((row, idx) => {
+                {capacityMix?.length > 0 && (
+                  <div className="rounded-lg border border-white/10 bg-white/5 p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Bus size={14} className="text-gray-400" />
+                      <div className="text-sm font-semibold text-white">{t('capacityVehicleMixTitle')}</div>
+                    </div>
+                    <div className="text-[11px] text-gray-400 mb-3">
+                      {t('capacityVehicleMixDesc')}
+                    </div>
+
+                    <div className="space-y-2">
+                      {capacityMix.slice(0, 8).map((row, idx) => {
                         const model = row.representative_brand_model || '—';
                         const modelCapacity = row.model_capacity_int || null;
                         const share = row.share_by_vehicles != null ? `${Math.round(row.share_by_vehicles * 100)}%` : '—';
                         const scenarioCapacity =
-                          inferredTripsPerHour && modelCapacity ? inferredTripsPerHour * modelCapacity : null;
+                          tripsPerHour && modelCapacity ? tripsPerHour * modelCapacity : null;
                         const scenarioOcc =
                           predicted != null && scenarioCapacity ? clampPercent((predicted / scenarioCapacity) * 100) : null;
+                        
+                        const occupancyDelta = row.occupancy_delta_pct_vs_expected;
+                        const deltaDisplay = occupancyDelta != null ? 
+                          (occupancyDelta > 0 ? `+${occupancyDelta.toFixed(1)}%` : `${occupancyDelta.toFixed(1)}%`) : 
+                          null;
 
                         return (
-                          <div key={idx} className="flex items-center justify-between gap-3 rounded-md border border-white/10 bg-slate-950/30 px-3 py-2">
-                            <div className="min-w-0">
-                              <div className="text-xs text-white truncate">{model}</div>
-                              <div className="text-[11px] text-gray-500">
-                                {t('capacityPerVehicle')}: {modelCapacity ? modelCapacity.toLocaleString() : '—'} • {t('capacityShare')}: {share}
+                          <div key={idx} className="rounded-md border border-white/10 bg-slate-950/30 p-3">
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0 flex-1">
+                                <div className="text-xs font-medium text-white truncate">{model}</div>
+                                <div className="mt-1 flex items-center gap-3 text-[11px] text-gray-500">
+                                  <span>{t('capacityPerVehicle')}: <span className="text-gray-300">{modelCapacity ? modelCapacity.toLocaleString() : '—'}</span></span>
+                                  <span>{t('capacityShare')}: <span className="text-gray-300">{share}</span></span>
+                                </div>
                               </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-xs text-gray-300">
-                                {t('capacityScenario')}: {scenarioCapacity ? scenarioCapacity.toLocaleString() : '—'}
-                              </div>
-                              <div className="text-[11px] text-sky-200">
-                                {scenarioOcc == null ? '—' : `${scenarioOcc}%`}
+                              <div className="text-right shrink-0">
+                                <div className="text-xs font-medium text-gray-300">
+                                  {scenarioCapacity ? scenarioCapacity.toLocaleString() : '—'}
+                                </div>
+                                <div className="text-[11px] font-semibold text-sky-200">
+                                  {scenarioOcc == null ? '—' : `${scenarioOcc}%`}
+                                  {deltaDisplay && (
+                                    <span className={`ml-1 ${occupancyDelta > 0 ? 'text-orange-400' : 'text-emerald-400'}`}>
+                                      ({deltaDisplay})
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  ) : (
-                    <div className="mt-2 text-xs text-gray-500">{t('capacityNoMix')}</div>
-                  )}
-                </div>
+                  </div>
+                )}
               </>
             )}
           </div>
