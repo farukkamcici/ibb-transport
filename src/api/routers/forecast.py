@@ -7,13 +7,6 @@ from ..db import get_db
 from ..models import DailyForecast, TransportLine
 from ..services.schedule_service import schedule_service
 from ..services.metro_service import metro_service
-from ..services.bus_schedule_cache import bus_schedule_cache_service
-from ..constants import (
-    METROBUS_CAPACITY,
-    METROBUS_CODE,
-    METROBUS_MIN_TRIPS_FALLBACK,
-    METROBUS_POOL,
-)
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
@@ -39,33 +32,6 @@ def _parse_time(time_str: str) -> Optional[datetime_time]:
     except Exception as e:
         logger.warning(f"Failed to parse time '{time_str}': {e}")
     return None
-
-
-def _crowd_level_for_capacity(prediction_value: float, max_capacity: int) -> str:
-    if max_capacity <= 0:
-        return "Unknown"
-    occupancy_rate = prediction_value / max_capacity
-    if occupancy_rate < 0.30:
-        return "Low"
-    if occupancy_rate < 0.60:
-        return "Medium"
-    if occupancy_rate < 0.90:
-        return "High"
-    return "Very High"
-
-
-def _is_metrobus_request(line_code: str) -> bool:
-    return line_code == METROBUS_CODE or line_code in METROBUS_POOL
-
-
-def _trips_per_hour_from_payload_direction(payload: Dict, direction: str) -> List[int]:
-    counts = [0] * 24
-    for time_str in payload.get(direction, []) or []:
-        parsed = _parse_time(time_str)
-        if not parsed:
-            continue
-        counts[int(parsed.hour)] += 1
-    return counts
 
 
 def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optional[Dict[str, Optional[int]]]:
@@ -105,8 +71,6 @@ def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optio
                     }
 
         schedule = schedule_service.get_schedule(line_code)
-        data_status = schedule.get('data_status')
-        has_service_today = schedule.get('has_service_today', True)
         
         # Collect times from specified direction(s)
         all_times = []
@@ -120,26 +84,7 @@ def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optio
                     all_times.append(parsed)
         
         if not all_times:
-            # If schedule fetch failed, we can't trust emptiness -> show forecasts for all hours.
-            if data_status == 'FETCH_FAILED':
-                logger.warning(f"Schedule unavailable for {line_code}, showing forecasts for all hours")
-                return None
-
-            # If caller asked for a specific direction and that direction has no departures,
-            # treat it as no service for that direction (even if the opposite direction runs).
-            if direction in ('G', 'D'):
-                opposite = 'D' if direction == 'G' else 'G'
-                opposite_has_times = bool(schedule.get(opposite, []))
-                if opposite_has_times or has_service_today:
-                    logger.info(
-                        f"Line {line_code} has no planned departures for direction={direction} (opposite_has_times={opposite_has_times})"
-                    )
-                    return {
-                        "first_hour": None,
-                        "last_hour": None,
-                        "wraps_midnight": False,
-                        "has_service": False
-                    }
+            data_status = schedule.get('data_status')
             
             # Case 1: Genuinely no service today (e.g., line doesn't run on Sundays)
             if data_status == 'NO_SERVICE_DAY' or (data_status == 'NO_DATA' and schedule.get('has_service_today') is False):
@@ -150,6 +95,12 @@ def _get_service_hours(line_code: str, direction: Optional[str] = None) -> Optio
                     "wraps_midnight": False,
                     "has_service": False
                 }
+            
+            # Case 2: Schedule fetch failed - show forecasts for ALL hours
+            # Return None so _is_hour_in_service returns True for all hours
+            if data_status == 'FETCH_FAILED':
+                logger.warning(f"Schedule unavailable for {line_code}, showing forecasts for all hours")
+                return None
             
             # Case 3: Unknown status - return None (show forecasts)
             logger.warning(f"No schedule data for {line_code} (status={data_status}), showing forecasts")
@@ -177,6 +128,8 @@ def _is_hour_in_service(hour: int, service_hours: Optional[Dict[str, Optional[in
     """
     Check if a given hour is within service hours.
     
+    Includes +1 hour buffer after last departure to account for vehicles in transit.
+    
     Args:
         hour: Hour to check (0-23)
         service_hours: Tuple of (first_hour, last_hour) or None
@@ -198,12 +151,15 @@ def _is_hour_in_service(hour: int, service_hours: Optional[Dict[str, Optional[in
     if first_hour is None or last_hour is None:
         return False
 
+    # Add +1 hour buffer after last departure for vehicles in transit
+    extended_last_hour = (last_hour + 1) % 24
+
     if not wraps_midnight:
         # Normal daytime service
-        return first_hour <= hour <= last_hour
+        return first_hour <= hour <= min(23, last_hour + 1)
 
-    # Wrap-around (e.g., 06:00 -> 00:30): service is [first..23] U [0..last]
-    return hour >= first_hour or hour <= last_hour
+    # Wrap-around (e.g., 06:00 -> 00:30): service is [first..23] U [0..extended_last]
+    return hour >= first_hour or hour <= extended_last_hour
 
 class HourlyForecastResponse(BaseModel):
     hour: int = Field(..., ge=0, le=23, description="Hour of day (0-23)")
@@ -260,22 +216,18 @@ def get_daily_forecast(
         # Backwards-compatible aliasing: M1A/M1B share the same forecast rows as M1.
         # IMPORTANT: service-hours should still be computed from the requested line_name
         # (because M1A vs M1B topology hours/stops can differ).
-        if _is_metrobus_request(line_name):
-            forecast_line_name = METROBUS_CODE
-        else:
-            forecast_line_name = 'M1' if line_name in ('M1A', 'M1B') else line_name
+        forecast_line_name = 'M1' if line_name in ('M1A', 'M1B') else line_name
 
-        if forecast_line_name != METROBUS_CODE:
-            line_exists = db.query(TransportLine).filter(
-                TransportLine.line_name == forecast_line_name
-            ).first()
-            
-            if not line_exists:
-                logger.warning(f"Forecast requested for non-existent line: {line_name}")
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"Transport line '{line_name}' not found. Please verify the line name."
-                )
+        line_exists = db.query(TransportLine).filter(
+            TransportLine.line_name == forecast_line_name
+        ).first()
+        
+        if not line_exists:
+            logger.warning(f"Forecast requested for non-existent line: {line_name}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transport line '{line_name}' not found. Please verify the line name."
+            )
         
         max_date = datetime.now().date() + timedelta(days=7)
         if target_date > max_date:
@@ -284,98 +236,6 @@ def get_daily_forecast(
                 detail=f"Forecast date cannot be more than 7 days in the future. Requested: {target_date}, Max: {max_date}"
             )
         
-        if forecast_line_name == METROBUS_CODE:
-            # Aggregate metrobus variants into one virtual line.
-            metrobus_rows = db.query(DailyForecast).filter(
-                DailyForecast.line_name.in_(METROBUS_POOL),
-                DailyForecast.date == target_date
-            ).all()
-
-            if not metrobus_rows:
-                raise HTTPException(
-                    status_code=404,
-                    detail=f"No forecast data available for line '{METROBUS_CODE}' on {target_date}."
-                )
-
-            pred_by_hour = {h: 0.0 for h in range(24)}
-            for row in metrobus_rows:
-                if row.hour is None:
-                    continue
-                pred_by_hour[int(row.hour)] += float(row.predicted_value or 0.0)
-
-            # Load schedules from persisted cache for the requested date.
-            # If schedule is unavailable, keep forecasts visible but use a safe capacity floor.
-            trips_by_hour = [0] * 24
-            schedule_available = False
-            for sub_code in METROBUS_POOL:
-                payload, _, _ = bus_schedule_cache_service.get_cached_schedule(
-                    db,
-                    sub_code,
-                    valid_for=target_date,
-                    max_stale_days=7,
-                )
-                if not payload:
-                    continue
-                if payload.get('data_status') == 'FETCH_FAILED':
-                    continue
-                schedule_available = True
-                if direction in ('G', 'D'):
-                    sub_trips = _trips_per_hour_from_payload_direction(payload, direction)
-                else:
-                    sub_trips = bus_schedule_cache_service.trips_per_hour_from_payload(payload)
-                trips_by_hour = [a + b for a, b in zip(trips_by_hour, sub_trips)]
-
-            response_data = []
-            for hour in range(24):
-                total_pred = float(pred_by_hour.get(hour, 0.0))
-
-                if schedule_available:
-                    trips = int(trips_by_hour[hour])
-                    in_service = trips > 0
-                    if not in_service:
-                        response_data.append({
-                            "hour": hour,
-                            "predicted_value": None,
-                            "occupancy_pct": None,
-                            "crowd_level": "Out of Service",
-                            "max_capacity": max(1, trips * METROBUS_CAPACITY),
-                            "in_service": False,
-                            "trips_per_hour": trips,
-                            "vehicle_capacity": METROBUS_CAPACITY,
-                        })
-                        continue
-
-                    max_capacity = max(1, trips * METROBUS_CAPACITY)
-                    occupancy_pct = min(100, round((total_pred / max_capacity) * 100))
-                    response_data.append({
-                        "hour": hour,
-                        "predicted_value": total_pred,
-                        "occupancy_pct": occupancy_pct,
-                        "crowd_level": _crowd_level_for_capacity(total_pred, max_capacity),
-                        "max_capacity": max_capacity,
-                        "in_service": True,
-                        "trips_per_hour": trips,
-                        "vehicle_capacity": METROBUS_CAPACITY,
-                    })
-                    continue
-
-                # Schedule unavailable: keep forecasts visible for all hours but avoid 0 capacity.
-                effective_trips = METROBUS_MIN_TRIPS_FALLBACK
-                max_capacity = effective_trips * METROBUS_CAPACITY
-                occupancy_pct = min(100, round((total_pred / max_capacity) * 100))
-                response_data.append({
-                    "hour": hour,
-                    "predicted_value": total_pred,
-                    "occupancy_pct": occupancy_pct,
-                    "crowd_level": _crowd_level_for_capacity(total_pred, max_capacity),
-                    "max_capacity": max_capacity,
-                    "in_service": True,
-                    "trips_per_hour": effective_trips,
-                    "vehicle_capacity": METROBUS_CAPACITY,
-                })
-
-            return response_data
-
         forecasts = db.query(DailyForecast).filter(
             DailyForecast.line_name == forecast_line_name,
             DailyForecast.date == target_date

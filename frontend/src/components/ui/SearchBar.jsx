@@ -9,30 +9,6 @@ import { getTransportType } from '@/lib/transportTypes';
 import { useGetTransportLabel } from '@/hooks/useGetTransportLabel';
 import { Skeleton } from '@/components/ui/Skeleton';
 
-const METROBUS_POOL = ["34", "34A", "34AS", "34BZ", "34C", "34G", "34Z"];
-const METROBUS_CODE = "METROBUS";
-
-function coalesceMetrobusResults(items) {
-  if (!Array.isArray(items) || items.length === 0) return items;
-
-  const hasMetrobus = items.some((it) => it?.line_name === METROBUS_CODE);
-  const poolHits = items.filter((it) => METROBUS_POOL.includes(it?.line_name));
-  if (!hasMetrobus && poolHits.length === 0) return items;
-
-  const base = poolHits[0] || items.find((it) => it?.line_name === METROBUS_CODE);
-  const virtualItem = {
-    line_name: METROBUS_CODE,
-    transport_type_id: base?.transport_type_id ?? 1,
-    road_type: base?.road_type ?? "OTOYOL",
-    line: "METROBÜS (Tüm Hatlar)",
-    relevance_score: base?.relevance_score ?? 1,
-  };
-
-  const withoutPool = items.filter((it) => !METROBUS_POOL.includes(it?.line_name));
-  const withoutDup = withoutPool.filter((it) => it?.line_name !== METROBUS_CODE);
-  return [virtualItem, ...withoutDup];
-}
-
 export default function SearchBar() {
   const t = useTranslations('searchBar');
   const locale = useLocale();
@@ -47,7 +23,7 @@ export default function SearchBar() {
     if (debouncedQuery.length > 1) {
       queueMicrotask(() => setLoading(true));
       searchLines(debouncedQuery).then(data => {
-        setResults(coalesceMetrobusResults(data));
+        setResults(data);
         setLoading(false);
       });
     } else {

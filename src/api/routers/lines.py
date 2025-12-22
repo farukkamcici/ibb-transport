@@ -6,7 +6,6 @@ from ..db import get_db
 from ..models import TransportLine
 from ..services.route_service import route_service
 from ..services.metro_service import metro_service
-from ..constants import METROBUS_CODE, METROBUS_POOL
 from pydantic import BaseModel
 import unicodedata
 
@@ -101,7 +100,6 @@ def search_lines(query: str, db: Session = Depends(get_db)):
     ).limit(15).all()
     
     results: List[SearchResult] = []
-    metrobus_added = False
 
     for row in lines:
         base = SearchResult(
@@ -111,22 +109,6 @@ def search_lines(query: str, db: Session = Depends(get_db)):
             line=row.TransportLine.line,
             relevance_score=row.relevance_score
         )
-
-        # Metrobus pooling: collapse all metrobus variants into a single virtual line.
-        # This prevents showing multiple variants that can have sparse schedules.
-        if base.line_name in METROBUS_POOL:
-            if not metrobus_added:
-                results.append(
-                    SearchResult(
-                        line_name=METROBUS_CODE,
-                        transport_type_id=base.transport_type_id,
-                        road_type=base.road_type,
-                        line="METROBÜS (Tüm Hatlar)",
-                        relevance_score=base.relevance_score,
-                    )
-                )
-                metrobus_added = True
-            continue
 
         # Best-practice UX: expose M1A/M1B as separate searchable lines.
         # Forecasts remain keyed by "M1" in the DB, but topology/schedule differ.
@@ -154,18 +136,6 @@ def get_line_metadata(line_name: str, db: Session = Depends(get_db)):
     """
     Retrieves metadata for a specific transport line.
     """
-    if line_name == METROBUS_CODE:
-        # Use an existing metrobus variant as the metadata source.
-        base = db.query(TransportLine).filter(TransportLine.line_name == '34').first()
-        if not base:
-            raise HTTPException(status_code=404, detail=f"Transport line '{line_name}' not found.")
-        return TransportLineResponse(
-            line_name=METROBUS_CODE,
-            transport_type_id=base.transport_type_id,
-            road_type=base.road_type,
-            line="METROBÜS (Tüm Hatlar)",
-        )
-
     base_line_name = 'M1' if line_name in ('M1A', 'M1B') else line_name
     line = db.query(TransportLine).filter(
         TransportLine.line_name == base_line_name

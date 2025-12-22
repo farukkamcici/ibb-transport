@@ -3,7 +3,6 @@ from typing import Dict, List, Optional
 from pydantic import BaseModel
 
 from ..services.schedule_service import schedule_service
-from ..constants import METROBUS_CODE, METROBUS_POOL
 
 router = APIRouter()
 
@@ -55,27 +54,6 @@ def get_line_schedule(line_code: str):
         HTTPException 500: If external API fails
     """
     try:
-        if line_code == METROBUS_CODE:
-            combined = {
-                "G": [],
-                "D": [],
-                "meta": {},
-                "has_service_today": False,
-                "data_status": "OK",
-            }
-
-            for sub_code in METROBUS_POOL:
-                payload = schedule_service.get_schedule(sub_code)
-                combined["G"].extend(payload.get("G") or [])
-                combined["D"].extend(payload.get("D") or [])
-
-            # De-duplicate and sort times (lexicographic works for HH:MM)
-            combined["G"] = sorted(set(combined["G"]))
-            combined["D"] = sorted(set(combined["D"]))
-            combined["has_service_today"] = bool(combined["G"] or combined["D"])
-            combined["data_status"] = "OK" if combined["has_service_today"] else "NO_SERVICE_DAY"
-            return ScheduleResponse(**combined)
-
         schedule = schedule_service.get_schedule(line_code)
         
         # Check if schedule is empty

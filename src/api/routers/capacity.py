@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 
 from ..services.capacity_store import CapacityStore
 from ..state import get_capacity_store
-from ..constants import METROBUS_CODE, METROBUS_CAPACITY
 
 router = APIRouter(tags=["capacity"])
 
@@ -35,16 +34,6 @@ def get_capacity_meta(
     line_code: str,
     store: CapacityStore = Depends(get_capacity_store),
 ):
-    if line_code == METROBUS_CODE:
-        return CapacityMetaResponse(
-            line_code=METROBUS_CODE,
-            expected_capacity_weighted_int=METROBUS_CAPACITY,
-            capacity_min=METROBUS_CAPACITY,
-            capacity_max=METROBUS_CAPACITY,
-            confidence="FIXED",
-            likely_models_topk_json=None,
-            notes="Virtual line: pooled metrobus variants with fixed per-vehicle capacity.",
-        )
     meta = store.get_capacity_meta(line_code)
     return CapacityMetaResponse(**meta.__dict__)
 
@@ -55,7 +44,6 @@ def get_capacity_mix(
     top_k: int = Query(10, ge=1, le=50),
     store: CapacityStore = Depends(get_capacity_store),
 ):
-    if line_code == METROBUS_CODE:
-        return []
     rows: List[Dict[str, Any]] = store.get_capacity_mix(line_code, top_k=top_k)
     return [CapacityMixRow(**row) for row in rows]
+

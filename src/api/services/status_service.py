@@ -319,17 +319,6 @@ class IETTStatusService:
                     logger.info(f"Line {line_code} has no planned service for current day type")
                     return {"in_operation": False, "next_service_time": None, "reason": "NO_SERVICE_DAY"}
 
-                # If the caller asked for a specific direction and there are no departures
-                # for that direction, treat it as out-of-service for the requested direction.
-                if direction in ('G', 'D'):
-                    opposite = 'D' if direction == 'G' else 'G'
-                    opposite_has_times = bool(schedule.get(opposite, []))
-                    if opposite_has_times:
-                        logger.info(
-                            f"Line {line_code} has no planned departures for direction={direction} (opposite_has_times=True)"
-                        )
-                        return {"in_operation": False, "next_service_time": None, "reason": "NO_SERVICE_DIRECTION"}
-
                 # Unknown state - assume active (benefit of doubt)
                 return {"in_operation": True, "next_service_time": None, "reason": "UNKNOWN"}
             
