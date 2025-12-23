@@ -14,6 +14,7 @@ from .weather import fetch_daily_weather_data_sync
 from .bus_schedule_cache import bus_schedule_cache_service
 from .metro_schedule_cache import metro_schedule_cache_service
 from .metro_service import metro_service
+from .marmaray_service import marmaray_service
 
 # Placeholder for Istanbul coordinates
 ISTANBUL_LAT = 41.0082
@@ -121,6 +122,15 @@ def run_daily_forecast_job(
             for idx, line_name in enumerate(line_names):
                 if idx % 200 == 0:
                     print(f"Loading schedules: {idx}/{len(line_names)} lines (target={date_str}, day_type={day_type})...")
+                
+                # Marmaray: compute trips-per-hour from static schedule
+                if line_name == 'MARMARAY':
+                    is_weekend = forecast_date.weekday() in [4, 5]  # Friday/Saturday nights
+                    marmaray_trips = marmaray_service.get_all_trips_per_hour(is_weekend)
+                    if marmaray_trips:
+                        cache_hits += 1
+                        trips_per_hour_by_line[line_name] = marmaray_trips
+                        continue
                 
                 # Rail lines: compute trips-per-hour from Metro timetable cache.
                 if line_name in rail_line_codes or line_name == 'M1':

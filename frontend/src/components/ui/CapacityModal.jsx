@@ -34,8 +34,15 @@ export default function CapacityModal({
     lineCode?.startsWith('T') ||
     lineCode?.startsWith('F') ||
     lineCode?.startsWith('TF');
+  
+  const isMarmaray = lineCode === 'MARMARAY';
 
-  const metaNote = capacityMeta?.confidence === 'fallback' ? t('capacityFallbackNote') : null;
+  // Marmaray-specific capacity explanation
+  const capacityNote = isMarmaray
+    ? "Marmaray filosunda karma vagon yapısı bulunmaktadır: %67 oranında 10'lu vagonlar (3.000 kapasite) ve %33 oranında 5'li vagonlar (1.550 kapasite). Ortalama araç kapasitesi 2.500 yolcu olarak hesaplanmıştır."
+    : (capacityMeta?.confidence === 'fallback' ? t('capacityFallbackNote') : null);
+  
+  const metaNote = capacityNote;
 
   if (typeof document === 'undefined') return null;
 
